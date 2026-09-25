@@ -1,0 +1,33 @@
+{
+  "name": "ct-metal-beam",
+  "version": "0.3.6",
+  "description": "发送键金属常亮、语音键反光、文字柔雾炫彩与输入框流光。",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ne1ther/codex-tweaks-metal-beam.git"
+  },
+  "homepage": "https://github.com/Ne1ther/codex-tweaks-metal-beam",
+  "bugs": {
+    "url": "https://github.com/Ne1ther/codex-tweaks-metal-beam/issues"
+  },
+  "scripts": {
+    "build": "node tooling/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "package": "node tooling/package.mjs"
+  },
+  "keywords": [
+    "codex-tweaks-package",
+    "codex-tweaks-ui"
+  ],
+  "dependencies": {},
+  "codexTweaks": {
+    "apiVersion": 3,
+    "entrypoints": {
+      "renderer": "src/index.js"
+    },
+    "priority": 240,
+    "packageDependencies": {}
+  }
+}

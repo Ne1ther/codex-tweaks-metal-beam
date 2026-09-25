@@ -1,0 +1,11 @@
+{
+  "name": "ct-metal-beam-build-tools",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@paper-design/shaders": "0.0.80",
+    "esbuild": "0.28.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}
