@@ -15,7 +15,6 @@
 | 输入框 | Border Beam 边缘流光，运行时增强；装饰不进入输入框的滚动布局 |
 | 侧栏当前选中项 | 金属光影；切换选中项时复用已有材质画布 |
 | 侧栏其他项目与适用控件 | 轻量悬停亮度变化 |
-| 左下账号整条底栏 | 柔和、缓慢移动的雾光 |
 | 模型与档位文字 | 沿文字中央铺开的柔雾，四边渐隐，并避开下拉箭头 |
 | 左上 Codex / ChatGPT 名称 | 只在文字笔画内流动的淡彩，不给整个按钮上色 |
 
@@ -29,13 +28,13 @@
 
 1. 打开原版 Codex Tweaks → **功能包** → **从 Git 安装**。
 2. 填入仓库地址：`https://github.com/Ne1ther/codex-tweaks-metal-beam.git`。
-3. 选择发布标签 `v0.3.6`，或选择最新语义化版本标签以接收后续版本。
+3. 选择发布标签 `v0.3.7`，或选择最新语义化版本标签以接收后续版本。
 4. 安装和编译完成后，打开 **ct-metal-beam** 的开关。
 5. 回到 Codex，让窗口获得焦点，即可看到空闲状态下的光效。
 
 ### 从 ZIP 安装
 
-在 [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) 下载 **ct-metal-beam-0.3.6.zip**，然后在 Tweaks 功能包页面选择“安装本地包”。这个 ZIP 根目录直接包含 `package.json`，不包含宿主应用、依赖目录或符号链接。
+在 [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) 下载 **ct-metal-beam-0.3.7.zip**，然后在 Tweaks 功能包页面选择“安装本地包”。这个 ZIP 根目录直接包含 `package.json`，不包含宿主应用、依赖目录或符号链接。
 
 已有本地版本时，先确认它的包名同样是 `ct-metal-beam`，使用宿主提供的更新流程。避免同时启用多份相同效果的副本。
 
@@ -51,7 +50,7 @@
 
 可见金属边缘由小尺寸 WebGL 画布直接绘制，最高按 60 fps 调度；反光与柔光共用较低频率的采样源。雾光和输入框流光尽量使用缓存纹理、位移和透明度动画。悬停不创建新材质实例，也不改变按钮的位置。
 
-一次 Apple M3 Max 上的满载训练对照中，实际渲染代码在固定预览布局运行时，训练吞吐平均下降约 **1.6%**，动画约 **50 fps**。这是六组短窗口测量，**不是完整 Codex 界面的开销保证，也不是 GPU 占用低于 5% 的承诺**。方法、功率读数与限制见 [性能说明](docs/PERFORMANCE.md)。
+0.3.6 版在 Apple M3 Max 上的一次满载训练对照中，实际渲染代码在固定预览布局运行时，训练吞吐平均下降约 **1.6%**，动画约 **50 fps**。这是六组短窗口测量，**不是完整 Codex 界面的开销保证，也不是 GPU 占用低于 5% 的承诺**。方法、功率读数与限制见 [性能说明](docs/PERFORMANCE.md)。
 
 - 当前验证平台为 macOS；Windows / Linux 未验证。
 - 支持浅色、深色及系统减少动态效果。WebGL2 不可用时不挂载金属画布，保留原生控件。
@@ -80,7 +79,7 @@ npm test
 npm run package
 ```
 
-最后一步需要 `zip` 命令，生成 `dist/ct-metal-beam-0.3.6.zip` 和校验文件。目录结构、预览、发布以及安装版和源码版的关系见 [开发说明](docs/DEVELOPMENT.md)。
+最后一步需要 `zip` 命令，生成 `dist/ct-metal-beam-0.3.7.zip` 和校验文件。目录结构、预览、发布以及安装版和源码版的关系见 [开发说明](docs/DEVELOPMENT.md)。
 
 ## 致谢与许可
 

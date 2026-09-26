@@ -90,28 +90,6 @@ export function isSidebarRow(el){
   const row=el.closest(THREAD_ROW);if(row)return el===row;
   return el.matches('a[href],[role="treeitem"],button,[role="button"]')&&!el.closest('[aria-haspopup="menu"]')&&el.getBoundingClientRect().width>=90;
 }
-function accountBars(){
-  const found=[];
-  for(const side of document.querySelectorAll(SIDEBAR)){
-    // Current Codex ProfileFooter: a full-width container encloses the
-    // profile .sidebar-item and the trailing voice / account actions.
-    for(const el of side.querySelectorAll('[class~="[container-type:inline-size]"]')){
-      if(!el.querySelector('.sidebar-item button,.sidebar-item [role="button"]'))continue;
-      const a=el.getBoundingClientRect(),b=side.getBoundingClientRect();
-      if(a.width>=b.width*.65&&a.height>=28&&a.height<=120&&a.bottom>b.top+b.height*.5)found.push(el);
-    }
-    if(found.some(el=>side.contains(el)))continue;
-    // Semantic fallback for versions exposing a profile trigger but without
-    // the container class. Never inspect the account name or avatar URL.
-    for(const trigger of side.querySelectorAll('button[aria-label],[role="button"][aria-label]')){
-      if(!/^(?:open profile menu|open account menu|打开(?:个人资料|个人信息|账户|账号)(?:菜单)?)$/i.test(name(trigger).trim()))continue;
-      const sideBox=side.getBoundingClientRect();let match=null;
-      for(let el=trigger.parentElement;el&&el!==side;el=el.parentElement){const b=el.getBoundingClientRect();if(b.height>120)break;if(b.width>=sideBox.width*.7&&b.height>=28)match=el;}
-      if(match)found.push(match);
-    }
-  }
-  return [...new Set(found)].filter(el=>!found.some(other=>other!==el&&other.contains(el)));
-}
 function wordmarkLabels(){
   const found=[];
   for(const side of document.querySelectorAll(SIDEBAR)){
@@ -134,7 +112,7 @@ function wordmarkLabels(){
   }
   return [...new Set(found)];
 }
-export function discover(broad=true,accountHaze=true,modelHaze=true,wordmarkHaze=true) {
+export function discover(broad=true,modelHaze=true,wordmarkHaze=true) {
   const composers=[],buttons=[],selected=[],controls=[],panels=[],models=[];
   const labels=wordmarkLabels(),modeControls=new Set(labels.map(el=>el.closest('button,[role="button"]')).filter(Boolean));
   for(const root of document.querySelectorAll(COMPOSER)){
@@ -151,7 +129,7 @@ export function discover(broad=true,accountHaze=true,modelHaze=true,wordmarkHaze
     }
     for(const el of document.querySelectorAll(PANEL))if(eligible(el)&&geometry(el,{occlusion:false}))panels.push(el);
   }
-  return {composers:[...new Set(composers)],buttons:[...new Set(buttons)],selected:[...new Set(selected)].filter(el=>!selected.some(other=>other!==el&&other.contains(el))),controls:[...new Set(controls)],panels,models:[...new Set(models)].slice(0,2),accounts:accountHaze?accountBars():[],wordmarks:wordmarkHaze?labels:[]};
+  return {composers:[...new Set(composers)],buttons:[...new Set(buttons)],selected:[...new Set(selected)].filter(el=>!selected.some(other=>other!==el&&other.contains(el))),controls:[...new Set(controls)],panels,models:[...new Set(models)].slice(0,2),wordmarks:wordmarkHaze?labels:[]};
 }
 export function running(el){
   const root=el.closest(COMPOSER);

@@ -113,12 +113,9 @@ $('#tests').onclick=async()=>{
     check('Sidebar hover has a persistent lightweight opacity layer',!!nextRow.querySelector('.ctmb-sidebar-light')&&getComputedStyle(nextRow.querySelector('.ctmb-sidebar-light')).transitionProperty==='opacity');
     nextRow.classList.remove('native-hover');nextRow.click();await wait(60);
     check('Sidebar selection reuses its live material and canvas',nextRow.querySelector('.ctmb-metal-fx-root')===selectedRoot&&nextRow.querySelector('canvas')===selectedCanvas&&!selected.querySelector('.ctmb-metal-fx-root'));
-    const footer=$('.profile-footer'),haze=footer.querySelector('.ctmb-account-haze');
-    check('Haze covers the complete account bar including trailing actions',!!haze&&library.getStatus().accountBars===1&&Math.abs(haze.getBoundingClientRect().width-footer.clientWidth)<.1&&!haze.querySelector('canvas')&&getComputedStyle(haze).pointerEvents==='none');
-    const drift=haze.querySelector('i'),beforeDrift=getComputedStyle(drift).transform;await wait(120);
-    check('Account haze drifts using transform only',getComputedStyle(drift).animationName==='ctmb-account-drift'&&getComputedStyle(drift).transform!==beforeDrift);
+    const footer=$('.profile-footer');
+    check('Account footer remains native without haze or decorative animation',!footer.querySelector('.ctmb-account-haze')&&!footer.hasAttribute('data-codex-tweaks-mb-account')&&footer.getAnimations({subtree:true}).length===0);
     const oldAccountClicks=accountClicks;$('.profile-trigger').click();check('Native account button retains its click handler',accountClicks===oldAccountClicks+1);
-    library.setConfig({accountHaze:false});check('Account haze can be disabled independently',!footer.querySelector('.ctmb-account-haze')&&library.getStatus().beams===1);library.setConfig({accountHaze:true});
     draft.value='This draft must survive decoration';draft.dispatchEvent(new Event('input',{bubbles:true}));draft.focus();
     const before=nativeClicks;native.click();await wait(220);
     check('Original send event and running state',nativeClicks===before+1&&library.getStatus().running&&draft.value==='This draft must survive decoration');
@@ -127,7 +124,6 @@ $('#tests').onclick=async()=>{
     check('No doubled mounts after native icon replacement',mountingCount===2&&!$('.voice').querySelector('.ctmb-metal-mount'));
     library.setConfig({motion:false});await wait(260);const pausedFrame=runtimeState().frames,pausedDirect=runtimeState().directFrames;await wait(260);
     check('Pause stops shader frame count',runtimeState().frames===pausedFrame&&runtimeState().directFrames===pausedDirect&&!runtimeState().loopScheduled,runtimeState());
-    check('Pause also freezes account haze',getComputedStyle($('.ctmb-account-haze i')).animationPlayState==='paused');
     check('Pause freezes model haze too',getComputedStyle($('.ctmb-model-haze i')).animationPlayState==='paused');
     const wordPaused=getComputedStyle($('.mode-label'),'::after').opacity;await wait(140);
     check('Pause freezes mode word colors',getComputedStyle($('.mode-label'),'::after').animationPlayState==='paused'&&getComputedStyle($('.mode-label'),'::after').opacity===wordPaused);

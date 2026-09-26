@@ -8,7 +8,7 @@ export function activate({root,onCleanup,api}) {
   if(route==='/avatar-overlay'||location.pathname.endsWith('/avatar-overlay-composition-surface.html'))return;
   let config=readConfig(),live=true,timer=0,layoutRaf=0,selectionRaf=0,lastError='';
   let visibleTheme=theme(),paused=false,scans=0,retargets=0;
-  const metals=new Map(),beams=new Map(),marks=new Map(),accounts=new Map(),models=new Map(),wordmarks=new Map(),failed=new WeakSet();
+  const metals=new Map(),beams=new Map(),marks=new Map(),models=new Map(),wordmarks=new Map(),failed=new WeakSet();
   const reduced=matchMedia('(prefers-reduced-motion:reduce)'),contrast=matchMedia('(forced-colors:active)'),systemTheme=matchMedia('(prefers-color-scheme:dark)');
   const supported=isMetalFxSupported();
   const style=document.createElement('style');style.setAttribute(OWN,'style');style.textContent=CSS;root.append(style);
@@ -95,23 +95,6 @@ export function activate({root,onCleanup,api}) {
       item.el=el;item.signature='';metals.set(el,item);resize.observe(el);retargets++;
     }
   }
-  function updateAccounts(found){
-    const wanted=new Set(contrast.matches?[]:found.accounts);
-    for(const [el,item] of accounts)if(!wanted.has(el)){accountVisibility.unobserve(el);item.node.remove();for(const reset of item.restore.reverse())reset();accounts.delete(el);}
-    for(const el of wanted){
-      let item=accounts.get(el);
-      if(!item){
-        const restore=[attribute(el,'data-codex-tweaks-mb-account',visibleTheme)];
-        if(getComputedStyle(el).position==='static')restore.push(attribute(el,POSITION,''));
-        const node=document.createElement('div');node.className='ctmb-account-haze';node.setAttribute(OWN,'account-haze');node.setAttribute('aria-hidden','true');
-        node.append(document.createElement('i'),document.createElement('i'));el.append(node);
-        item={node,restore,visible:true};accounts.set(el,item);accountVisibility.observe(el);
-      }
-      if(!item.node.isConnected)el.append(item.node);
-      el.setAttribute('data-codex-tweaks-mb-account',visibleTheme);
-      item.node.dataset.paused=String(paused||!item.visible);
-    }
-  }
   function positionModel(el,item){
     const band=modelTextBand(el);item.node.hidden=!band;if(!band)return;
     if(item.anchor!==band.anchor){if(item.anchor)item.resize.unobserve(item.anchor);item.anchor=band.anchor;if(item.anchor)item.resize.observe(item.anchor);}
@@ -120,7 +103,7 @@ export function activate({root,onCleanup,api}) {
     item.node.style.width=`${band.width}px`;item.node.style.height=`${band.height}px`;
   }
   function removeModel(el,item){
-    accountVisibility.unobserve(el);item.resize.disconnect();item.observer.disconnect();item.node.remove();
+    decorationVisibility.unobserve(el);item.resize.disconnect();item.observer.disconnect();item.node.remove();
     for(const reset of item.restore.reverse())reset();models.delete(el);
   }
   function updateModels(found){
@@ -136,7 +119,7 @@ export function activate({root,onCleanup,api}) {
         const resize=new ResizeObserver(scheduleLayout);
         const observer=new MutationObserver(records=>{if(records.some(record=>!record.target.parentElement?.closest?.(`[${OWN}]`)&&!record.target.hasAttribute?.(OWN)))scheduleLayout();});
         observer.observe(el,{subtree:true,childList:true,characterData:true});resize.observe(el);
-        item={node,restore,resize,observer,anchor:null,signature:'',visible:true};models.set(el,item);accountVisibility.observe(el);
+        item={node,restore,resize,observer,anchor:null,signature:'',visible:true};models.set(el,item);decorationVisibility.observe(el);
       }
       if(!item.node.isConnected)el.append(item.node);
       el.setAttribute('data-codex-tweaks-mb-model',visibleTheme);item.node.dataset.paused=String(paused||!item.visible);
@@ -144,7 +127,7 @@ export function activate({root,onCleanup,api}) {
     }
   }
   function removeWordmark(el,item){
-    accountVisibility.unobserve(el);item.observer.disconnect();for(const reset of item.restore.reverse())reset();wordmarks.delete(el);
+    decorationVisibility.unobserve(el);item.observer.disconnect();for(const reset of item.restore.reverse())reset();wordmarks.delete(el);
   }
   function updateWordmarks(found){
     const wanted=new Set(contrast.matches?[]:found.wordmarks);
@@ -157,7 +140,7 @@ export function activate({root,onCleanup,api}) {
         // rediscovered without listening to streamed message text.
         const observer=new MutationObserver(schedule);
         observer.observe(el.closest('button,[role="button"]')||el.parentElement,{subtree:true,childList:true,characterData:true});
-        item={restore,observer,visible:true};wordmarks.set(el,item);accountVisibility.observe(el);
+        item={restore,observer,visible:true};wordmarks.set(el,item);decorationVisibility.observe(el);
       }
       el.setAttribute('data-codex-tweaks-mb-wordmark-text',el.textContent.trim());
       el.setAttribute('data-codex-tweaks-mb-wordmark',visibleTheme);
@@ -167,7 +150,7 @@ export function activate({root,onCleanup,api}) {
   function scan(){
     if(timer)clearTimeout(timer);timer=0;if(!live)return;scans++;invalidateReflectionGeometry();
     visibleTheme=theme();paused=!config.motion||reduced.matches||document.hidden||!document.hasFocus();
-    const found=discover(config.broad,config.accountHaze,config.modelHaze,config.wordmarkHaze),wantMetal=new Map(),wantBeam=new Map();updateMarks(found);updateAccounts(found);updateModels(found);updateWordmarks(found);
+    const found=discover(config.broad,config.modelHaze,config.wordmarkHaze),wantMetal=new Map(),wantBeam=new Map();updateMarks(found);updateModels(found);updateWordmarks(found);
     const add=(el)=>{const box=geometry(el);if(box&&!failed.has(el))wantMetal.set(el,box);};
     if(!contrast.matches){
       if(supported){
@@ -187,9 +170,9 @@ export function activate({root,onCleanup,api}) {
   function schedule(){if(live&&!timer)timer=window.setTimeout(scan,90);}
   function scheduleSelection(){if(live&&!selectionRaf)selectionRaf=requestAnimationFrame(()=>{selectionRaf=0;scan();});}
   const resize=new ResizeObserver(scheduleLayout);
-  const accountVisibility=new IntersectionObserver(entries=>{for(const entry of entries){const item=accounts.get(entry.target)||models.get(entry.target),wordmark=wordmarks.get(entry.target);if(item){item.visible=entry.isIntersecting;item.node.dataset.paused=String(paused||!item.visible);}if(wordmark){wordmark.visible=entry.isIntersecting;entry.target.setAttribute('data-codex-tweaks-mb-wordmark-paused',String(paused||!wordmark.visible));}}});
+  const decorationVisibility=new IntersectionObserver(entries=>{for(const entry of entries){const item=models.get(entry.target),wordmark=wordmarks.get(entry.target);if(item){item.visible=entry.isIntersecting;item.node.dataset.paused=String(paused||!item.visible);}if(wordmark){wordmark.visible=entry.isIntersecting;entry.target.setAttribute('data-codex-tweaks-mb-wordmark-paused',String(paused||!wordmark.visible));}}});
   const observer=new MutationObserver(records=>{
-    const removedMount=records.some(record=>(metals.has(record.target)&&!metals.get(record.target).node.isConnected)||(marks.get(record.target)?.node&&!marks.get(record.target).node.isConnected)||(accounts.has(record.target)&&!accounts.get(record.target).node.isConnected)||(models.has(record.target)&&!models.get(record.target).node.isConnected));
+    const removedMount=records.some(record=>(metals.has(record.target)&&!metals.get(record.target).node.isConnected)||(marks.get(record.target)?.node&&!marks.get(record.target).node.isConnected)||(models.has(record.target)&&!models.get(record.target).node.isConnected));
     const selectionChanged=records.some(record=>record.type==='attributes'&&['aria-current','aria-selected','data-app-action-sidebar-thread-active','data-app-action-sidebar-thread-selected'].includes(record.attributeName));
     if(selectionChanged)scheduleSelection();else if(removedMount||relevantMutation(records))schedule();
   });
@@ -200,15 +183,14 @@ export function activate({root,onCleanup,api}) {
   listen(reduced,'change',scan);listen(contrast,'change',scan);listen(systemTheme,'change',scan);
   document.fonts?.ready.then(()=>{if(live)scheduleLayout();});
   listen(window,'storage',event=>{if(event.key===KEY){config=readConfig();scan();}});
-  const diagnose=()=>({...runtimeState(),version:'0.3.6',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,accountBars:accounts.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
+  const diagnose=()=>({...runtimeState(),version:'0.3.7',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
   const update=patch=>{config=normalize({...config,...patch});const saved=writeConfig(config);scan();return saved;};
   api?.registerLibrary('metal-beam',{getStatus:diagnose,getConfig:()=>({...config}),setConfig:update});
   function cleanup(){
     if(!live)return;live=false;if(timer)clearTimeout(timer);if(layoutRaf)cancelAnimationFrame(layoutRaf);if(selectionRaf)cancelAnimationFrame(selectionRaf);timer=layoutRaf=selectionRaf=0;
-    observer.disconnect();resize.disconnect();accountVisibility.disconnect();for(const dispose of events)dispose();
+    observer.disconnect();resize.disconnect();decorationVisibility.disconnect();for(const dispose of events)dispose();
     for(const el of [...metals.keys()])remove(metals,el);for(const el of [...beams.keys()])remove(beams,el);
     for(const item of marks.values())item.restore();marks.clear();
-    for(const item of accounts.values()){item.node.remove();for(const reset of item.restore.reverse())reset();}accounts.clear();
     for(const [el,item] of models)removeModel(el,item);
     for(const [el,item] of wordmarks)removeWordmark(el,item);
     disposeRuntime();overlay.remove();style.remove();

@@ -15,7 +15,6 @@ This is an independent, third-party **API v3** package with the stable ID `ct-me
 | Composer | Border Beam around the edge, stronger while running |
 | Selected sidebar item | Metal light with canvas reuse when selection changes |
 | Other eligible controls | Subtle hover highlights |
-| Account footer | Soft animated haze across the whole footer |
 | Model and effort label | A feathered band around the text center, inside the button and clear of the chevron |
 | Codex / ChatGPT heading | Color within the text glyphs only |
 
@@ -27,11 +26,11 @@ You need the Codex desktop app and a working Codex Tweaks API v3 host. This is a
 
 1. In Codex Tweaks, open **Packages → Install from Git**.
 2. Use `https://github.com/Ne1ther/codex-tweaks-metal-beam.git`.
-3. Select the released `v0.3.6` tag, or the latest semantic-version tag selector for updates.
+3. Select the released `v0.3.7` tag, or the latest semantic-version tag selector for updates.
 4. After installation and compilation, enable **ct-metal-beam**.
 5. Focus the Codex window to see the idle animation.
 
-Alternatively, download **ct-metal-beam-0.3.6.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
+Alternatively, download **ct-metal-beam-0.3.7.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
 
 For an existing installation, use the host's update flow for the same package ID. Avoid enabling duplicate copies of the effect.
 
@@ -45,7 +44,7 @@ Open `preview/standalone.html` for an offline demonstration. Its settings panel 
 
 Small WebGL canvases draw narrow metal rings at up to 60 fps. Reflections share a lower-rate source; haze and beam effects use cached textures and compositor-friendly motion where possible. Hover does not create new material instances or move native buttons.
 
-A six-pair, short-window saturated-training experiment on an Apple M3 Max measured approximately **1.6% lower training throughput**, with the real rendering code running at about **50 fps in a fixed preview layout**. This is not a whole-Codex benchmark, a long-run guarantee, or a promise of GPU usage below 5%. See [methodology and limitations](docs/PERFORMANCE.md).
+A six-pair, short-window saturated-training experiment with version 0.3.6 on an Apple M3 Max measured approximately **1.6% lower training throughput**, with the real rendering code running at about **50 fps in a fixed preview layout**. This is not a whole-Codex benchmark, a long-run guarantee, or a promise of GPU usage below 5%. See [methodology and limitations](docs/PERFORMANCE.md).
 
 macOS has been exercised; Windows and Linux have not. Light/dark appearance and reduced motion are handled. Metal rendering needs WebGL2. Control matching uses observable Codex DOM markers and may need updating after app changes. Multiple windows and overlapping theme packages can increase cost or change appearance.
 

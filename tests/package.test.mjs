@@ -18,6 +18,7 @@ test('Untrusted / old local settings cannot create an invalid material configura
   assert.equal(normalize({intensity:99,palette:'unknown',motion:'false'}).intensity,1);
   assert.equal(normalize({intensity:99,palette:'unknown',motion:'false'}).palette,'chromatic');
   assert.equal(normalize({broad:false,beam:false,motion:false}).motion,false);
+  assert.deepEqual(normalize({accountHaze:true,modelHaze:false}),{...DEFAULTS,modelHaze:false});
 });
 test('Send / stop matching accepts control metadata without matching ordinary labels',()=>{
   for(const label of ['Send','Send message','发送','提交'])assert.ok(sendLabel(label));
@@ -26,7 +27,7 @@ test('Send / stop matching accepts control metadata without matching ordinary la
 });
 test('Distribution is renderer-only API v3, local bundled dependencies, without symlinks',()=>{
   const manifest=JSON.parse(fs.readFileSync(path.join(base,'package.json')));
-  assert.equal(manifest.name,'ct-metal-beam');assert.equal(manifest.version,'0.3.6');
+  assert.equal(manifest.name,'ct-metal-beam');assert.equal(manifest.version,'0.3.7');
   assert.equal(manifest.codexTweaks.apiVersion,3);assert.deepEqual(manifest.dependencies,{});
   assert.equal(manifest.codexTweaks.entrypoints.node,undefined);assert.equal(manifest.codexTweaks.permissions,undefined);assert.equal(manifest.codexTweaks.ui,undefined);
   function walk(dir){for(const item of fs.readdirSync(dir)){if(item==='node_modules')continue;const file=path.join(dir,item);const stat=fs.lstatSync(file);assert.equal(stat.isSymbolicLink(),false,file);if(stat.isDirectory())walk(file);else assert.ok(stat.isFile(),file);}}
