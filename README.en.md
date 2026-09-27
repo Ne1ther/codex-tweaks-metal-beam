@@ -14,11 +14,13 @@ This is an independent, third-party **API v3** package with the stable ID `ct-me
 | Adjacent voice button | Passive reflected light, without its own metal animation |
 | Composer | Border Beam around the edge, stronger while running |
 | Selected sidebar item | Metal light with canvas reuse when selection changes |
-| Other eligible controls | Subtle hover highlights |
+| Other sidebar navigation rows | Subtle hover highlights |
 | Model and effort label | A feathered band around the text center, inside the button and clear of the chevron |
 | Codex / ChatGPT heading | Color within the text glyphs only |
 
 Decorations do not handle clicks or replace native actions. Motion pauses when the window loses focus, the page is hidden, or Reduce Motion is enabled. This package does not implement native window transparency, Ghostty-style background blur, or HDR output.
+
+Conversation outline ticks, the usage widget, generic toolbars, and menus retain their original appearance without extra hover frames. Native keyboard focus indicators are preserved.
 
 ## Install
 
@@ -26,11 +28,11 @@ You need the Codex desktop app and a working Codex Tweaks API v3 host. This is a
 
 1. In Codex Tweaks, open **Packages → Install from Git**.
 2. Use `https://github.com/Ne1ther/codex-tweaks-metal-beam.git`.
-3. Select the released `v0.3.7` tag, or the latest semantic-version tag selector for updates.
+3. Select the released `v0.3.8` tag, or the latest semantic-version tag selector for updates.
 4. After installation and compilation, enable **ct-metal-beam**.
 5. Focus the Codex window to see the idle animation.
 
-Alternatively, download **ct-metal-beam-0.3.7.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
+Alternatively, download **ct-metal-beam-0.3.8.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
 
 For an existing installation, use the host's update flow for the same package ID. Avoid enabling duplicate copies of the effect.
 

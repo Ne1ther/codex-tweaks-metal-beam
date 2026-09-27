@@ -10,7 +10,7 @@ const PANEL='[role="menu"],[role="dialog"],[role="listbox"]';
 const ZONE=`${COMPOSER},header,nav,[role="toolbar"],${PANEL},${SIDEBAR}`;
 const EDITOR='textarea,[contenteditable="true"],[role="textbox"]';
 const SELECTED='[aria-current="page"],[aria-current="true"],[aria-selected="true"],[data-state="active"],[data-selected="true"],[data-app-action-sidebar-thread-active="true"],[data-app-action-sidebar-thread-selected="true"]';
-const EXCLUDED=`[${OWN}],.ctmb-settings,pre,code,${EDITOR},.monaco-editor,.xterm,[data-codex-tweaks-mb-ignore]`;
+const EXCLUDED=`[${OWN}],.ctmb-settings,pre,code,${EDITOR},.monaco-editor,.xterm,[data-codex-tweaks-mb-ignore],[data-codex-tweaks-usage-overview],[data-codex-tweaks-usage-overview-tooltip]`;
 const name=el=>el.getAttribute('aria-label')||el.getAttribute('title')||'';
 export const isOwned=node=>!!node?.closest?.(`[${OWN}],[data-ctmb-metal-fx-reflection],.ctmb-settings`);
 export const voiceLabel=(value='')=>/^(?:(?:start(?: new)?|stop|use|toggle) )?(?:voice(?: mode| input| chat)?|dictation|dictate|microphone|语音(?:输入|聊天)?|(?:开始|停止|使用|切换)?(?:语音|听写|录音))$/i.test(value.trim());
@@ -86,7 +86,7 @@ function selectedRow(el){
   return false;
 }
 export function isSidebarRow(el){
-  if(!el?.closest(SIDEBAR))return false;
+  if(!el?.closest(SIDEBAR)||el.closest(`${EXCLUDED},${PANEL}`))return false;
   const row=el.closest(THREAD_ROW);if(row)return el===row;
   return el.matches('a[href],[role="treeitem"],button,[role="button"]')&&!el.closest('[aria-haspopup="menu"]')&&el.getBoundingClientRect().width>=90;
 }
@@ -113,7 +113,7 @@ function wordmarkLabels(){
   return [...new Set(found)];
 }
 export function discover(broad=true,modelHaze=true,wordmarkHaze=true) {
-  const composers=[],buttons=[],selected=[],controls=[],panels=[],models=[];
+  const composers=[],buttons=[],selected=[],sidebarRows=[],models=[];
   const labels=wordmarkLabels(),modeControls=new Set(labels.map(el=>el.closest('button,[role="button"]')).filter(Boolean));
   for(const root of document.querySelectorAll(COMPOSER)){
     if(root.closest(EXCLUDED))continue;
@@ -124,12 +124,13 @@ export function discover(broad=true,modelHaze=true,wordmarkHaze=true) {
     }
   }
   if(broad){
-    for(const zone of document.querySelectorAll(ZONE))for(const el of zone.querySelectorAll(CONTROL)){
-      if(!eligible(el)||voiceLabel(name(el))||isModelTrigger(el)||modeControls.has(el))continue;controls.push(el);if(selectedRow(el))selected.push(el);
+    // Only decorate sidebar navigation rows. Generic nav/toolbar controls also
+    // include conversation ticks and widgets owned by other Tweaks packages.
+    for(const side of document.querySelectorAll(SIDEBAR))for(const el of side.querySelectorAll(CONTROL)){
+      if(!eligible(el)||!isSidebarRow(el)||voiceLabel(name(el))||isModelTrigger(el)||modeControls.has(el))continue;sidebarRows.push(el);if(selectedRow(el))selected.push(el);
     }
-    for(const el of document.querySelectorAll(PANEL))if(eligible(el)&&geometry(el,{occlusion:false}))panels.push(el);
   }
-  return {composers:[...new Set(composers)],buttons:[...new Set(buttons)],selected:[...new Set(selected)].filter(el=>!selected.some(other=>other!==el&&other.contains(el))),controls:[...new Set(controls)],panels,models:[...new Set(models)].slice(0,2),wordmarks:wordmarkHaze?labels:[]};
+  return {composers:[...new Set(composers)],buttons:[...new Set(buttons)],selected:[...new Set(selected)].filter(el=>!selected.some(other=>other!==el&&other.contains(el))),sidebarRows:[...new Set(sidebarRows)],models:[...new Set(models)].slice(0,2),wordmarks:wordmarkHaze?labels:[]};
 }
 export function running(el){
   const root=el.closest(COMPOSER);
@@ -144,11 +145,6 @@ export function neighbor(button){
     if(overlap>=Math.min(a.height,b.height)*.45&&gap<bestGap&&geometry(el)){best=el;bestGap=gap;}
   }
   return best;
-}
-export function hoverControl(target){
-  const el=target?.closest?.(CONTROL);
-  if(!el||!eligible(el)||!el.closest(ZONE)||el.disabled)return null;
-  const box=el.getBoundingClientRect();return box.width<=600&&box.height<=80?el:null;
 }
 export function theme(){
   const value=document.documentElement.getAttribute('data-theme')||document.body?.getAttribute('data-theme')||[...document.querySelectorAll('[data-theme="light"],[data-theme="dark"]')].find(el=>!isOwned(el))?.getAttribute('data-theme');

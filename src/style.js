@@ -31,12 +31,10 @@ ${WORDMARK_CSS}
 @keyframes ctmb-beam-crossfade {0%,100%{opacity:1}25%,75%{opacity:0}}
 .ctmb-beam-mount {box-shadow:inset 0 0 0 1px rgba(161,184,216,.15)}
 .ctmb-beam-mount[data-theme="light"] {box-shadow:inset 0 0 0 1px rgba(72,99,132,.14)}
-[data-codex-tweaks-mb-surface="control"]:is(:hover,:focus-visible):not([data-codex-tweaks-mb-metal]):not([data-codex-tweaks-mb-surface="sidebar-row"] *) {box-shadow:inset 0 0 0 1px rgba(162,183,214,.25)}
 [data-codex-tweaks-mb-surface="sidebar-row"] {isolation:isolate}
 .ctmb-sidebar-light {position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;opacity:0;background:linear-gradient(115deg,rgba(182,208,244,.09),rgba(187,171,225,.025));box-shadow:inset 0 0 0 1px rgba(172,194,225,.18);transition:opacity 170ms cubic-bezier(.2,.7,.2,1);contain:paint}
 [data-codex-tweaks-mb-surface="sidebar-row"]:is(:hover,:focus-visible) > .ctmb-sidebar-light {opacity:1}
 [data-codex-tweaks-mb-metal] > .ctmb-sidebar-light {visibility:hidden}
-[data-codex-tweaks-mb-surface="panel"] {box-shadow:inset 0 0 0 1px rgba(162,183,214,.18)}
 .ctmb-beam-mount [data-beam],.ctmb-beam-mount [data-beam]>* {pointer-events:none!important}
 .ctmb-beam-mount[data-paused="true"] *, .ctmb-beam-mount[data-paused="true"] *::before,
 .ctmb-beam-mount[data-paused="true"] *::after {animation-play-state:paused!important}

@@ -5,7 +5,7 @@ export function mountSettings(container,getConfig,update,diagnose) {
     <label>材质强度<input aria-label="材质强度" type="range" min="0.2" max="1" step="0.05"></label>
     <label>流动动画<input aria-label="流动动画" type="checkbox" data-setting="motion"></label>
     <label>Border Beam 柔光<input aria-label="Border Beam 柔光" type="checkbox" data-setting="beam"></label>
-    <label>侧栏选中态、工具栏与菜单<input aria-label="界面组件效果" type="checkbox" data-setting="broad"></label>
+    <label>侧栏任务行光效<input aria-label="侧栏任务行光效" type="checkbox" data-setting="broad"></label>
     <label>模型文字中线柔雾<input aria-label="模型文字柔雾" type="checkbox" data-setting="modelHaze"></label>
     <label>Codex / ChatGPT 文字炫彩<input aria-label="模式名称文字炫彩" type="checkbox" data-setting="wordmarkHaze"></label>
     <p>自动跟随深浅主题和系统“减少动态效果”。设置只保存在本机。</p>

@@ -72,7 +72,7 @@ export function activate({root,onCleanup,api}) {
   }
   function updateMarks(found){
     const wanted=new Map();
-    if(config.broad&&!contrast.matches){for(const el of found.controls)wanted.set(el,isSidebarRow(el)?'sidebar-row':'control');for(const el of found.panels)wanted.set(el,'panel');}
+    if(config.broad&&!contrast.matches)for(const el of found.sidebarRows)wanted.set(el,'sidebar-row');
     for(const [el,item] of marks)if(!wanted.has(el)||wanted.get(el)!==item.kind){item.restore();marks.delete(el);}
     for(const [el,kind] of wanted){
       if(marks.has(el)){const item=marks.get(el);if(item.node&&!item.node.isConnected)el.append(item.node);continue;}
@@ -183,7 +183,7 @@ export function activate({root,onCleanup,api}) {
   listen(reduced,'change',scan);listen(contrast,'change',scan);listen(systemTheme,'change',scan);
   document.fonts?.ready.then(()=>{if(live)scheduleLayout();});
   listen(window,'storage',event=>{if(event.key===KEY){config=readConfig();scan();}});
-  const diagnose=()=>({...runtimeState(),version:'0.3.7',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
+  const diagnose=()=>({...runtimeState(),version:'0.3.8',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
   const update=patch=>{config=normalize({...config,...patch});const saved=writeConfig(config);scan();return saved;};
   api?.registerLibrary('metal-beam',{getStatus:diagnose,getConfig:()=>({...config}),setConfig:update});
   function cleanup(){

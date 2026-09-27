@@ -11,6 +11,9 @@ const chevron='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
 const mic='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3"/></svg>';
 let cleanup=null,library=null,settingsMount=null,settingsCleanup=null,taskRunning=false,nativeClicks=0,accountClicks=0,modelClicks=0,voiceClicks=0,modeClicks=0;
 const report=value=>{$('#report').textContent=typeof value==='string'?value:JSON.stringify(value,null,2);};
+const scopeTargets=()=>[...document.querySelectorAll('.outline-tick,.usage-summary')];
+const nativeDecoration=el=>{const css=getComputedStyle(el);return [css.boxShadow,css.outlineStyle,css.outlineWidth,css.outlineColor,css.borderRadius].join('|');};
+const nativeScope=new Map(scopeTargets().map(el=>{el.focus({preventScroll:true});const before=nativeDecoration(el);el.blur();return [el,before];}));
 function paintState(){$('#state').textContent=taskRunning?'运行中 · 流光增强':'空闲 · 缓慢流动';$('#dot').classList.toggle('working',taskRunning);}
 function composer(home=false){
   taskRunning=false;paintState();
@@ -58,6 +61,15 @@ $('#tests').onclick=async()=>{
   try{
     composer();enable();library.setConfig({...DEFAULTS});document.documentElement.dataset.theme='dark';$('.fixture').scrollIntoView({block:'center',behavior:'instant'});await wait(650);
     let status=library.getStatus();check('Send material and passive voice reflection mounted',status.metals===2&&status.reflections===1&&status.beams===1&&!!$('.voice [data-ctmb-metal-fx-reflection]')&&!$('.voice').hasAttribute('data-codex-tweaks-mb-metal'),status);
+    check('Conversation outline and usage widget receive no decoration markers',scopeTargets().every(el=>!el.hasAttribute('data-codex-tweaks-mb-surface')&&!el.hasAttribute('data-codex-tweaks-mb-metal')&&!el.querySelector('[data-codex-tweaks-mb-owned]')));
+    for(const [el,before] of nativeScope){el.focus({preventScroll:true});check(`Native focus styling is preserved: ${el.getAttribute('aria-label')}`,nativeDecoration(el)===before,{before,after:nativeDecoration(el)});el.blur();}
+    const tick=$('.outline-tick');tick.setAttribute('aria-current','true');await wait(160);
+    check('Selecting a conversation outline tick does not create a material or frame',!tick.hasAttribute('data-codex-tweaks-mb-surface')&&!tick.hasAttribute('data-codex-tweaks-mb-metal')&&getComputedStyle(tick).boxShadow==='none'&&library.getStatus().metals===2);tick.removeAttribute('aria-current');await wait(160);
+    const usage=$('.usage-summary'),usageHome=usage.parentElement;
+    try{
+      $('.app-shell-left-panel').append(usage);usage.setAttribute('data-state','active');await wait(180);
+      check('Usage widget inside the sidebar is not mistaken for a navigation row',!usage.hasAttribute('data-codex-tweaks-mb-surface')&&!usage.hasAttribute('data-codex-tweaks-mb-metal')&&!usage.querySelector('[data-codex-tweaks-mb-owned]'));
+    }finally{usageHome.append(usage);usage.removeAttribute('data-state');}await wait(180);
     const word=$('.mode-label'),wordCSS=getComputedStyle(word),wordBox=word.getBoundingClientRect(),mode=$('.mode-trigger'),modeSVG=mode.querySelector('svg');
     check('Persistent mode word alone receives glyph-clipped color',status.wordmarks===1&&wordCSS.backgroundClip.split(',').every(value=>value.trim()==='text')&&wordCSS.filter==='none'&&wordCSS.textShadow==='none'&&!mode.hasAttribute('data-codex-tweaks-mb-surface')&&getComputedStyle(modeSVG).backgroundImage==='none'&&!mode.querySelector('canvas,[data-codex-tweaks-mb-owned]'));
     const beforeMist=getComputedStyle(word,'::after').opacity,wordScans=library.getStatus().scans;await wait(420);
@@ -66,6 +78,7 @@ $('#tests').onclick=async()=>{
     check('Text effect toggle preserves original size and font',!word.hasAttribute('data-codex-tweaks-mb-wordmark')&&Math.abs(wordBox.width-bareBox.width)<.1&&Math.abs(wordBox.height-bareBox.height)<.1);library.setConfig({wordmarkHaze:true});
     const beforeModeClicks=modeClicks;mode.click();await wait(150);
     check('Mode menu still opens and its option text remains uncolored',modeClicks===beforeModeClicks+1&&!$('.mode-menu').hidden&&!$('.mode-menu').querySelector('[data-codex-tweaks-mb-wordmark]'));
+    check('Menu panel and menu items retain their native decoration',!$('.mode-menu').matches('[data-codex-tweaks-mb-surface]')&&!$('.mode-menu').querySelector('[data-codex-tweaks-mb-surface],[data-codex-tweaks-mb-owned]'));
     $('[data-mode-option="ChatGPT"]').click();await wait(220);
     check('ChatGPT retains word-only effect after native label replacement',$('.mode-label').textContent==='ChatGPT'&&$('.mode-label').hasAttribute('data-codex-tweaks-mb-wordmark')&&library.getStatus().wordmarks===1&&$('.mode-menu').hidden&&mode.querySelector('svg')===modeSVG&&!word.hasAttribute('data-codex-tweaks-mb-wordmark'));
     mode.click();$('[data-mode-option="Codex"]').click();await wait(220);
