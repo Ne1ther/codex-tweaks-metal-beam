@@ -10,7 +10,7 @@ export function activate({root,onCleanup,api}) {
   if(route==='/avatar-overlay'||location.pathname.endsWith('/avatar-overlay-composition-surface.html'))return;
   let config=readConfig(),live=true,timer=0,layoutRaf=0,selectionRaf=0,lastError='';
   let visibleTheme=theme(),paused=false,scans=0,retargets=0;
-  const metals=new Map(),beams=new Map(),marks=new Map(),models=new Map(),wordmarks=new Map(),voices=new Map(),failed=new WeakSet();
+  const metals=new Map(),beams=new Map(),marks=new Map(),models=new Map(),wordmarks=new Map(),failed=new WeakSet();
   const positions=new WeakMap();
   const reduced=matchMedia('(prefers-reduced-motion:reduce)'),contrast=matchMedia('(forced-colors:active)'),systemTheme=matchMedia('(prefers-color-scheme:dark)');
   const supported=isMetalFxSupported();
@@ -147,24 +147,6 @@ export function activate({root,onCleanup,api}) {
       item.handle?.refresh({theme:visibleTheme,paused:paused||!item.visible});
     }
   }
-  function removeVoice(el,item){
-    decorationVisibility.unobserve(el);item.node.remove();for(const reset of item.restore.reverse())reset();voices.delete(el);
-  }
-  function updateVoices(found){
-    const wanted=new Set(contrast.matches?[]:found.voices);
-    for(const [el,item] of voices)if(!wanted.has(el))removeVoice(el,item);
-    for(const el of wanted){
-      let item=voices.get(el);
-      if(!item){
-        const restore=[attribute(el,'data-codex-tweaks-mb-voice',visibleTheme),attribute(el,'data-codex-tweaks-mb-voice-paused',String(paused))];
-        if(getComputedStyle(el).position==='static')restore.push(attribute(el,POSITION,''));
-        const node=document.createElement('span');node.className='ctmb-voice-light';node.setAttribute(OWN,'voice');node.setAttribute('aria-hidden','true');el.append(node);
-        item={node,restore,visible:true};voices.set(el,item);decorationVisibility.observe(el);
-      }else if(!item.node.isConnected)el.append(item.node);
-      setAttribute(el,'data-codex-tweaks-mb-voice',visibleTheme);
-      setAttribute(el,'data-codex-tweaks-mb-voice-paused',String(paused||!item.visible));
-    }
-  }
   function scan(){
     if(timer)clearTimeout(timer);timer=0;if(!live)return;scans++;invalidateReflectionGeometry();
     visibleTheme=theme();paused=!config.motion||reduced.matches||document.hidden||!document.hasFocus();
@@ -180,7 +162,6 @@ export function activate({root,onCleanup,api}) {
     reuseSidebarMaterials(wantMetal);
     for(const el of metals.keys())if(!wantMetal.has(el))remove(metals,el);
     for(const el of beams.keys())if(!wantBeam.has(el))remove(beams,el);
-    updateVoices(found);
     for(const [el,box] of wantMetal)try{updateMetal(el,box);}catch(e){error(el,e);remove(metals,el);}
     for(const [el,box] of wantBeam)try{updateBeam(el,box);}catch(e){error(el,e);remove(beams,el);}
     setActivity([...wantBeam.keys(),...wantMetal.keys()].some(running));
@@ -190,13 +171,12 @@ export function activate({root,onCleanup,api}) {
   function scheduleSelection(){if(live&&!selectionRaf)selectionRaf=requestAnimationFrame(()=>{selectionRaf=0;scan();});}
   const resize=new ResizeObserver(()=>{scheduleLayout();schedule();});
   const decorationVisibility=new IntersectionObserver(entries=>{for(const entry of entries){
-    const item=models.get(entry.target),wordmark=wordmarks.get(entry.target),voice=voices.get(entry.target);
+    const item=models.get(entry.target),wordmark=wordmarks.get(entry.target);
     if(item){item.visible=entry.isIntersecting;setAttribute(entry.target,'data-codex-tweaks-mb-model-paused',String(paused||!item.visible));}
     if(wordmark){wordmark.visible=entry.isIntersecting;setAttribute(entry.target,'data-codex-tweaks-mb-wordmark-paused',String(paused||!wordmark.visible));wordmark.handle?.refresh({theme:visibleTheme,paused:paused||!wordmark.visible});}
-    if(voice){voice.visible=entry.isIntersecting;setAttribute(entry.target,'data-codex-tweaks-mb-voice-paused',String(paused||!voice.visible));}
   }});
   const observer=new MutationObserver(records=>{
-    const removedMount=records.some(record=>(metals.has(record.target)&&!metals.get(record.target).node.isConnected)||(marks.get(record.target)?.node&&!marks.get(record.target).node.isConnected)||(voices.has(record.target)&&!voices.get(record.target).node.isConnected));
+    const removedMount=records.some(record=>(metals.has(record.target)&&!metals.get(record.target).node.isConnected)||(marks.get(record.target)?.node&&!marks.get(record.target).node.isConnected));
     const selectionChanged=selectionMutation(records);
     if(selectionChanged)scheduleSelection();else if(removedMount||relevantMutation(records))schedule();
   });
@@ -207,7 +187,7 @@ export function activate({root,onCleanup,api}) {
   listen(reduced,'change',scan);listen(contrast,'change',scan);listen(systemTheme,'change',scan);
   document.fonts?.ready.then(()=>{if(live)scheduleLayout();});
   listen(window,'storage',event=>{if(event.key===KEY){config=readConfig();scan();}});
-  const diagnose=()=>({...runtimeState(),version:'0.3.11',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,voiceLights:voices.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
+  const diagnose=()=>({...runtimeState(),version:'0.3.12',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
   const update=patch=>{config=normalize({...config,...patch});const saved=writeConfig(config);scan();return saved;};
   api?.registerLibrary('metal-beam',{getStatus:diagnose,getConfig:()=>({...config}),setConfig:update});
   function cleanup(){
@@ -217,7 +197,6 @@ export function activate({root,onCleanup,api}) {
     for(const item of marks.values())item.restore();marks.clear();
     for(const [el,item] of models)removeModel(el,item);
     for(const [el,item] of wordmarks)removeWordmark(el,item);
-    for(const [el,item] of voices)removeVoice(el,item);
     disposeRuntime();overlay.remove();style.remove();
   }
   onCleanup(cleanup);scan();return cleanup;

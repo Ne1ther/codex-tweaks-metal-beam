@@ -99,19 +99,22 @@ function wordmarkLabels(){
   return [...new Set(found)];
 }
 export function discover(broad=true,modelHaze=true,wordmarkHaze=true) {
-  const composers=[],buttons=[],voices=[],selected=[],sidebarRows=[],models=[];
+  const composers=[],buttons=[],selected=[],sidebarRows=[],models=[];
   const labels=wordmarkLabels(),modeControls=new Set(labels.map(el=>el.closest('button,[role="button"]')).filter(Boolean));
   for(const root of document.querySelectorAll(COMPOSER)){
     if(root.closest(EXCLUDED))continue;
     composers.push(...roundedSurface(root));
     const localButtons=[],localVoices=[];
     for(const el of root.querySelectorAll(CONTROL))if(eligible(el)){
-      if(sendLabel(name(el))||stopLabel(name(el)))buttons.push(el);
-      if((sendLabel(name(el))||stopLabel(name(el)))&&el.getClientRects().length&&el.checkVisibility?.({checkOpacity:true,checkVisibilityCSS:true}))localButtons.push(el);
-      if(startVoiceLabel(name(el))&&!el.matches(':disabled,[aria-disabled="true"],[aria-pressed="true"]')&&!el.closest(PANEL)&&geometry(el))localVoices.push(el);
+      const label=name(el),sendOrStop=sendLabel(label)||stopLabel(label);
+      if(sendOrStop)buttons.push(el);
+      if(sendOrStop&&el.getClientRects().length&&el.checkVisibility?.({checkOpacity:true,checkVisibilityCSS:true}))localButtons.push(el);
+      if(startVoiceLabel(label)&&!el.closest(PANEL)&&geometry(el))localVoices.push(el);
       if(modelHaze&&isModelTrigger(el))models.push(el);
     }
-    if(!localButtons.length)voices.push(...localVoices.slice(0,1));
+    // Voice, Send and Stop share a material while the native button changes role.
+    // Do not decorate a secondary voice action when Send/Stop is also visible.
+    if(!localButtons.length)buttons.push(...localVoices.slice(0,1));
   }
   if(broad){
     // Only decorate sidebar navigation rows. Generic nav/toolbar controls also
@@ -120,14 +123,14 @@ export function discover(broad=true,modelHaze=true,wordmarkHaze=true) {
       if(!eligible(el)||!isSidebarRow(el)||voiceLabel(name(el))||isModelTrigger(el)||modeControls.has(el))continue;sidebarRows.push(el);if(selectedRow(el))selected.push(el);
     }
   }
-  return {composers:[...new Set(composers)],buttons:[...new Set(buttons)],voices:[...new Set(voices)].slice(0,2),selected:[...new Set(selected)].filter(el=>!selected.some(other=>other!==el&&other.contains(el))),sidebarRows:[...new Set(sidebarRows)],models:[...new Set(models)].slice(0,2),wordmarks:wordmarkHaze?labels:[]};
+  return {composers:[...new Set(composers)],buttons:[...new Set(buttons)],selected:[...new Set(selected)].filter(el=>!selected.some(other=>other!==el&&other.contains(el))),sidebarRows:[...new Set(sidebarRows)],models:[...new Set(models)].slice(0,2),wordmarks:wordmarkHaze?labels:[]};
 }
 export function running(el){
   const root=el.closest(COMPOSER);
   return !!root&&(root.getAttribute('aria-busy')==='true'||[...root.querySelectorAll('button,[role="button"]')].some(button=>!button.disabled&&stopLabel(name(button))&&button.getClientRects().length>0));
 }
 export function neighbor(button){
-  const root=button.closest(COMPOSER);if(!root||!(sendLabel(name(button))||stopLabel(name(button))))return null;
+  const root=button.closest(COMPOSER);if(!root||!(sendLabel(name(button))||stopLabel(name(button))||startVoiceLabel(name(button))))return null;
   const a=button.getBoundingClientRect();let best=null,bestGap=96;
   for(const el of root.querySelectorAll(CONTROL)){
     if(el===button||el.closest(EXCLUDED)||el.hasAttribute(METAL)||!voiceLabel(name(el)))continue;

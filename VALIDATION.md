@@ -1,3 +1,15 @@
+# 0.3.12 validation · 2026-09-27
+
+The flow under test is empty composer primary voice → typed Send → running Stop → cleared input primary voice. All three states now use the existing cached Metal renderer. The separate voice-glow module, nodes and animation lifecycle were removed; the adjacent dictation microphone stays reflection-only.
+
+- 39 Node checks and 101 browser checks passed. The browser suite was launched with the keyboard so its focus-visible comparison uses the same input modality as the native baseline. Checks include unchanged native clicks, disabled and pressed semantics, Chinese/English and home voice labels, one primary material, passive dictation reflection, same-instance and same-atlas reuse across all three states, replacement cleanup, blur/focus, themes, SVG wordmarks and complete teardown.
+- In the state-transition fixture, the primary mount and decoded atlas remained the same objects; the ring-cache bake counter did not increase. During an isolated warmed voice sample the cached animation advanced with no live ring draws, additional cache bakes or target rescans. Low-rate reflection/halo work remains. This is not a whole-app GPU utilization measurement; adding Metal to the empty voice state costs more than its former opacity-only glow.
+- The owned preview was exercised at http://127.0.0.1:48739/candidate through supported CUA and tab-scoped CDP. Page identity, meaningful rendering and console health passed, with no relevant errors or warnings. Actual browser typing, Send, Stop and clear actions returned to the expected primary-voice state.
+- Dark 1280 × 720 (DPR 2) and light 390 × 844 (DPR 1) previews were visually inspected. Both had one primary Metal mount and decoded cache, no old voice light and zero composer overflow. Native button geometry remained unchanged during state transitions.
+- Source changes remain renderer-only API v3, with no Node entrypoint, new permission, settings registration or host modification. Original Tweaks activation is checked separately from fixture rendering; the native Codex page was not instrumented.
+
+---
+
 # 0.3.11 validation · 2026-09-27
 
 The target flow is the sidebar product heading and empty composer: native SVG logo → glyph-only color; primary voice → typed Send → running Stop → cleared input → primary voice again. No host app or private module is modified. The original Tweaks renderer API v3 is unchanged, with no Node permission or settings registration.

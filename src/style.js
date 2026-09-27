@@ -1,6 +1,5 @@
 import {MODEL_HAZE_CSS} from './model-haze.js';
 import {WORDMARK_CSS} from './wordmark.js';
-import {VOICE_GLOW_CSS} from './voice-glow.js';
 export const OWN='data-codex-tweaks-mb-owned';
 export const METAL='data-codex-tweaks-mb-metal';
 export const POSITION='data-codex-tweaks-mb-position';
@@ -8,7 +7,6 @@ export const SURFACE_MARK='data-codex-tweaks-mb-surface';
 export const CSS=`
 ${MODEL_HAZE_CSS}
 ${WORDMARK_CSS}
-${VOICE_GLOW_CSS}
 [data-codex-tweaks-mb-position] { position:relative!important }
 [data-codex-tweaks-mb-metal] {
   isolation:isolate!important; overflow:visible!important;
