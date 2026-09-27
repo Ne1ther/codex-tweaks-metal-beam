@@ -179,7 +179,7 @@ export function activate({root,onCleanup,api}) {
   listen(reduced,'change',scan);listen(contrast,'change',scan);listen(systemTheme,'change',scan);
   document.fonts?.ready.then(()=>{if(live)scheduleLayout();});
   listen(window,'storage',event=>{if(event.key===KEY){config=readConfig();scan();}});
-  const diagnose=()=>({...runtimeState(),version:'0.3.9',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
+  const diagnose=()=>({...runtimeState(),version:'0.3.10',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
   const update=patch=>{config=normalize({...config,...patch});const saved=writeConfig(config);scan();return saved;};
   api?.registerLibrary('metal-beam',{getStatus:diagnose,getConfig:()=>({...config}),setConfig:update});
   function cleanup(){

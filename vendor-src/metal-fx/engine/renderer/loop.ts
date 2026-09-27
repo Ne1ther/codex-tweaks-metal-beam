@@ -1,3 +1,4 @@
+import {syncRingPlayer,hasRingPlayer,removeRingPlayer,pauseRingPlayers,setRingSpeed,refreshRingVisibility,refreshRingDocumentVisibility,invalidateRingPlayer,disposeRingPlayers,ringPlayerState} from './ring-player';
 import {createDirectSurface,updateDirectSurface,drawDirectSurface,hasDirectSurface,destroyDirectSurface,disposeDirectSurfaces,directState} from './direct';
 /** Animation loop, per-frame compositing, and instance lifecycle. */
 import { hexToRgba } from '../color';
@@ -27,6 +28,7 @@ function onContextReady(): void {
   if (SHARED && SHARED.instances.size > 0 && SHARED.pausedAtMs === null) startSharedLoop();
 }
 function onVisibility(): void {
+  refreshRingDocumentVisibility();
   if (!SHARED || SHARED.pausedAtMs !== null || SHARED.contextLost) return;
   if (document.hidden) stopSharedLoop();
   else if (SHARED.instances.size > 0) startSharedLoop();
@@ -39,7 +41,7 @@ export function disposeRuntimeLoop(): void {
   if (listening) document.removeEventListener('visibilitychange', onVisibility);
   listening = false;
   stopSharedLoop();
-  disposeDirectSurfaces();disposeGlowReadback();teardownSharedRenderer();
+  disposeRingPlayers();disposeDirectSurfaces();disposeGlowReadback();teardownSharedRenderer();
   setContextRestoredCallback(null);
   lastFrameMs = 0;loopCallbacks=0;frameIntervalMs=1000/6;shaderPhase=0;lastShaderClock=0;lastAuxMs=0;directFrames=0;
 }
@@ -107,7 +109,7 @@ export function createInstance(opts: CreateInstanceOptions): MetalFxInstance {
 }
 
 export function destroyInstance(inst: MetalFxInstance): void {
-  destroyDirectSurface(inst);
+  removeRingPlayer(inst);destroyDirectSurface(inst);
   if (!SHARED) return;
   SHARED.instances.delete(inst);
   const qi = SHARED.glowQueue.indexOf(inst);
@@ -146,7 +148,7 @@ export function updateInstance(
   if (patch.opacityMul !== undefined) inst.opacityMul = patch.opacityMul;
   if (patch.glowGain !== undefined) inst.glowGain = patch.glowGain;
   if (patch.paused !== undefined && patch.paused !== inst.paused) {
-    inst.paused = patch.paused;
+    inst.paused = patch.paused;refreshRingVisibility(inst);
     // Freeze on the frame the instance is showing right now; drop the copy
     // on unpause so composites go back to the live frame.
     if (patch.paused) freezeFrame(inst); else inst.frozen = null;
@@ -157,12 +159,13 @@ export function updateInstance(
     }
   }
   if (dirty) resizeInstanceCanvas(inst);
+  if(SHARED)invalidateRingPlayer(inst,SHARED.preset);
   updateDirectSurface(inst);
   if(SHARED)drawDirectSurface(inst,SHARED.preset,shaderPhase);
 }
 
 export function setInstanceVisible(inst: MetalFxInstance, visible: boolean): void {
-  inst.visible = visible;
+  inst.visible = visible;refreshRingVisibility(inst);
   if (visible && SHARED && SHARED.rafId === 0 && SHARED.pausedAtMs === null && !SHARED.contextLost) {
     startSharedLoop();
   }
@@ -182,6 +185,7 @@ export function setInstanceDeform(
   const inst = findInstance(canvas);
   if (!inst) return false;
   inst.deform = deform;
+  if(deform)removeRingPlayer(inst);
   inst.deformLayers = deform ? layers : null;
   const o = deform ? Math.max(0, Math.round(overscan)) : 0;
   if (o !== inst.overscan) { inst.overscan = o; resizeInstanceCanvas(inst); }
@@ -221,6 +225,7 @@ let presetOverride: PresetMode | null = null;
 export function setSharedPreset(name: PresetName, theme: PresetTheme): void {
   const s = ensureSharedRenderer();
   s.preset = presetOverride ?? PRESETS[name].modes[theme];
+  for(const inst of s.instances)invalidateRingPlayer(inst,s.preset);
   s.presetDirty = true;
 }
 
@@ -236,6 +241,7 @@ export function setSharedPresetMode(mode: PresetMode | null): void {
   presetOverride = mode;
   if (mode) {
     s.preset = mode;
+    for(const inst of s.instances)invalidateRingPlayer(inst,s.preset);
     s.presetDirty = true;
   }
 }
@@ -247,12 +253,14 @@ export function getSharedPreset(): PresetMode | null {
 }
 
 export function pauseShared(): void {
+  pauseRingPlayers(true);
   if (!SHARED || SHARED.pausedAtMs !== null) return;
   SHARED.pausedAtMs = performance.now();
   stopSharedLoop();
 }
 
 export function resumeShared(): void {
+  pauseRingPlayers(false);
   if (!SHARED || SHARED.pausedAtMs === null) return;
   SHARED.pausedMs += performance.now() - SHARED.pausedAtMs;
   SHARED.pausedAtMs = null;
@@ -285,6 +293,7 @@ export function tickInstanceGlow(inst: MetalFxInstance, nowMs: number): void {
 
 function resizeInstanceCanvas(inst: MetalFxInstance): void {
   inst.dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  if(SHARED)invalidateRingPlayer(inst,SHARED.preset);
   const o = inst.overscan;
   const w = Math.max(1, Math.round((inst.cssWidth + 2 * o) * inst.dpr));
   const h = Math.max(1, Math.round((inst.cssHeight + 2 * o) * inst.dpr));
@@ -571,13 +580,15 @@ let wakeTimer: ReturnType<typeof setTimeout> | null = null;
 let loopCallbacks = 0;
 export function setFrameInterval(ms: number): void {
   if (frameIntervalMs === ms) return;
-  frameIntervalMs = ms;
+  frameIntervalMs = ms;setRingSpeed(ms>100?1:1/.6);
   if (wakeTimer !== null) {clearTimeout(wakeTimer);wakeTimer=null;startSharedLoop();}
 }
-export function runtimeLoopState() {return {loopScheduled:!!SHARED?.rafId || wakeTimer!==null, targetFps:60, auxiliaryFps:1000/frameIntervalMs, directFrames, ...directState(), loopCallbacks};}
+export function runtimeLoopState() {return {loopScheduled:!!SHARED?.rafId || wakeTimer!==null, targetFps:60, auxiliaryFps:1000/frameIntervalMs, directFrames, ...directState(), ...ringPlayerState(), loopCallbacks};}
 function scheduleNextFrame(): void {
   if (!SHARED || SHARED.pausedAtMs !== null || document.hidden) return;
-  const delay=Math.max(0,PRESENT_INTERVAL-(performance.now()-lastFrameMs)-3);
+  const liveRing=[...SHARED.instances].some(inst=>inst.visible&&!inst.paused&&!hasRingPlayer(inst));
+  const interval=liveRing?PRESENT_INTERVAL:frameIntervalMs;
+  const delay=Math.max(0,interval-(performance.now()-lastFrameMs)-3);
   wakeTimer=setTimeout(()=>{wakeTimer=null;startSharedLoop();},delay);
 }
 
@@ -604,7 +615,10 @@ function tick(now: number): void {
   lastShaderClock=clock;
   let presented=false;
   for(const inst of SHARED.instances){
-    if(inst.visible&&(!inst.paused||!inst.everCopied))presented=drawDirectSurface(inst,SHARED.preset,shaderPhase)||presented;
+    if(inst.visible&&(!inst.paused||!inst.everCopied)){
+      const cached=syncRingPlayer(inst,SHARED.preset,shaderPhase);
+      if(!cached)presented=drawDirectSurface(inst,SHARED.preset,shaderPhase)||presented;
+    }
   }
   if(presented)directFrames++;
   if(!firstCopy&&now-lastAuxMs<frameIntervalMs-3){scheduleNextFrame();return;}

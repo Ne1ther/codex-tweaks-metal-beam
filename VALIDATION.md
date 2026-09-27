@@ -1,3 +1,58 @@
+# 0.3.10 validation · 2026-09-27
+
+Compared the frozen 0.3.9 preview from commit b490ddc with the 0.3.10 implementation through supported CUA and tab-scoped CDP. The original Tweaks installation was disabled for the final measurements, then restored with the new version. Benchmark values below come from the local preview, not instrumentation inside the native Codex conversation.
+
+## Behavior and appearance
+
+- 28 Node checks and 75 browser checks passed. The new tests execute the baker with a controlled renderer and Canvas2D double, covering native sizes, memory/dimension limits, 300/360 px wide Retina sidebars, packing, bounded scheduling, cancellation during yielding/encoding, resource cleanup, PNG fallback and premultiplied-alpha seam blending. Browser checks exercise decoded images, moving cached rings without live ring draws, resize/theme invalidation, pause/blur, native interactions, context loss, failed image decoding and repeated teardown.
+- The original Paper material function, presets, ring mesh and native pixel density are retained. Only temporal output changes: each atlas loops 128–320 native frames with a 40-frame blend into its starting phase. The blend uses weighted premultiplied RGBA addition, avoiding a dim transparent seam.
+- Dark desktop and light 390 × 844 CSS-pixel layouts were inspected. The narrow composer had no overflow, kept one visible model-text leaf, and rebuilt both ring caches. A 360 px sidebar was exercised in the browser regression suite without reducing pixel density.
+- In a separate two-second presentation sample, the browser delivered about 100 animation-frame opportunities per second; the atlas advanced through 122 distinct transforms, consistent with its 60 samples/second cadence. The previous ring renderer was paced by a 60 fps JavaScript target. This sample is not a guarantee of display refresh or frame rate on every host.
+- In the normal desktop atlas, the final-to-first seam RMSE over nontransparent RGBA pixels was 3.99 for the sidebar and 3.30 for Send on a 0–255 scale. Typical adjacent-frame RMSE was 8.72 and 7.90 respectively. This checks a discontinuity at the seam, not perceptual equivalence to an indefinitely running shader.
+
+## Main-thread and call-count measurements
+
+Both versions used a focused, visible 1100 × 950 CSS-pixel viewport at DPR 2: two metal surfaces, one passive voice reflection, one Beam, model glyph color and the mode wordmark. Each mode has two 6.5-second windows per version, after a 2.5-second navigation warmup. Idle order was A/B/A/B; running order was B/A/A/B. Running mode toggles the preview's Send state and updates a sidebar status span's text/class at 20 Hz. Those native-like updates are included in the measurement.
+
+CDP Performance metrics measure elapsed main-thread task/script time. A temporary wrapper counts draw and scheduling calls; it is absent from the package. Values are means, not Activity Monitor CPU percentages.
+
+| Per 6.5-second window | 0.3.9 | 0.3.10 |
+| --- | ---: | ---: |
+| Idle main-thread task time | 353.6 ms | 236.7 ms |
+| Idle script time | 51.6 ms | 26.2 ms |
+| Idle plugin RAF requests | 366.5 | 78 |
+| Idle WebGL draws | 686 | 39 |
+| Running + sidebar updates: task time | 431.5 ms | 396.0 ms |
+| Running + sidebar updates: script time | 73.0 ms | 57.2 ms |
+| Running + sidebar updates: plugin RAF requests | 399 | 134 |
+| Running + sidebar updates: WebGL draws | 716.5 | 58.5 |
+
+The auxiliary source still supplies low-rate glow and voice reflection. Once the atlas is ready, visible ring draw counts stay fixed while image transforms advance. New rings may temporarily use the live path while baking or when the cache budget/size is exceeded.
+
+## GPU timing and its boundary
+
+Separate 6.5-second windows used EXT_disjoint_timer_query_webgl2 around each WebGL draw, in A/B/B/A order. All query results were available and GPU_DISJOINT_EXT stayed false. No draw-time queries or profiling hooks ship with the package.
+
+| GPU query window | 0.3.9 | 0.3.10 |
+| --- | ---: | ---: |
+| First window | 50.536 ms / 686 draws | 4.445 ms / 37 draws |
+| Second window | 82.040 ms / 686 draws | 3.966 ms / 37 draws |
+| Mean elapsed GPU time inside draw queries | 66.288 ms | 4.206 ms |
+
+This is about 94% less time inside the measured shader draws. It excludes clearing, texture uploads, browser raster/composition, PNG generation, WindowServer, and other apps. It must not be labeled a 94% reduction in whole-Codex GPU use.
+
+Whole-device utilization was not stable enough to attribute a percentage: unrelated load was present in several windows. A separate diagnostic with the package off and only a 10 × 10 px opacity animation also produced appreciable device activity. Continuous presentation itself has a cost; this is not a lower-bound proof or a below-5% guarantee. No training workload was started, paused or killed for this release.
+
+## Memory and initialization tradeoffs
+
+Each atlas keeps native resolution with at most 32 MiB of logical RGBA pixels. The runtime conservatively reserves at most 64 MiB across rings. The normal two-ring preview reserved about 39.8 MiB; browser copies, staging surfaces and compressed data are additional. Wider controls use fewer columns/frames; unsupported geometry or failed decoding falls back to the live renderer.
+
+The baker yields after at most four frames or approximately four milliseconds of accumulated synchronous work. Individual browser/driver/codec operations can exceed that budget. One cold preview observation reached two ready caches in about 0.9 seconds and included two roughly 100 ms main-thread long tasks during initialization. Original material remains visible during generation. First-load cost is therefore still present; the steady-state results above do not describe startup. Theme, pixel density and geometry changes rebuild affected caches. Pending work is aborted when hidden/disabled; completed images, animation handles and owned blob URLs are released on removal.
+
+The implementation follows the principle of rendering expensive content once and animating cached layers, with explicit memory limits and measured fallback behavior. References: [Motion performance](https://motion.dev/docs/performance) and [web.dev animation properties/layer management](https://web.dev/articles/stick-to-compositor-only-properties-and-manage-layer-count).
+
+---
+
 # 0.3.9 validation · 2026-09-27
 
 Compared the unchanged 0.3.8 preview from commit `8248c80` with the 0.3.9 source in the Codex in-app Chromium browser, using supported CUA and tab-scoped CDP. The installed package was temporarily disabled during the final comparison to avoid running two copies. Both versions used a focused, visible 1100 × 950 CSS-pixel viewport, DPR 2, two metal surfaces, one passive voice reflection, one composer Beam, model decoration and the mode wordmark. The final 0.3.9 candidate replaces the old model haze with glyph-only iridescence.

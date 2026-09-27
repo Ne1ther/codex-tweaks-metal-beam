@@ -33,7 +33,7 @@ void main(){
 
 type Surface={canvas:HTMLCanvasElement;gl:WebGL2RenderingContext;program:WebGLProgram;
   buffer:WebGLBuffer;texture:WebGLTexture|null;uniforms:Record<string,WebGLUniformLocation|null>;
-  preset:PresetMode|null;lost:boolean;detach:()=>void;sourceOpacity:string;signature:string;vertices:number;time:number};
+  preset:PresetMode|null;lost:boolean;cached:boolean;detach:()=>void;sourceOpacity:string;signature:string;vertices:number;time:number};
 const surfaces=new Map<MetalFxInstance,Surface>();
 let lastFailure='';
 function ringMesh(w:number,h:number,r:number,ring:number,dpr:number):Float32Array{
@@ -77,8 +77,8 @@ export function createDirectSurface(inst:MetalFxInstance):void{
     gl=canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:true,antialias:false,depth:false,stencil:false,powerPreference:'low-power'});
     if(!gl)throw Error('Direct WebGL2 unavailable');
     const built=pipeline(gl);
-    const s:Surface={canvas,gl,...built,preset:null,lost:false,detach:()=>{},sourceOpacity:inst.canvas.style.opacity,signature:'',vertices:0,time:0};
-    const lost=(event:Event)=>{event.preventDefault();s.lost=true;canvas.hidden=true;inst.canvas.style.opacity=s.sourceOpacity;};
+    const s:Surface={canvas,gl,...built,preset:null,lost:false,cached:false,detach:()=>{},sourceOpacity:inst.canvas.style.opacity,signature:'',vertices:0,time:0};
+    const lost=(event:Event)=>{event.preventDefault();s.lost=true;canvas.hidden=true;inst.canvas.style.opacity=s.cached?'0':s.sourceOpacity;};
     const restored=()=>{try{
       const preset=s.preset;Object.assign(s,pipeline(s.gl));s.lost=false;s.preset=null;s.signature='';
       updateDirectSurface(inst);if(preset)drawDirectSurface(inst,preset,s.time);canvas.hidden=false;
@@ -89,6 +89,12 @@ export function createDirectSurface(inst:MetalFxInstance):void{
   }catch(error){lastFailure=String(error);gl?.getExtension('WEBGL_lose_context')?.loseContext();canvas.remove();}
 }
 export function hasDirectSurface(inst:MetalFxInstance):boolean{return !!surfaces.get(inst)&&!surfaces.get(inst)!.lost;}
+export function setDirectSurfaceCached(inst:MetalFxInstance,cached:boolean):boolean{
+  const s=surfaces.get(inst);if(!s)return false;
+  s.cached=cached;s.canvas.style.visibility=cached?'hidden':'';
+  inst.canvas.style.opacity=cached||!s.lost?'0':s.sourceOpacity;
+  return true;
+}
 export function updateDirectSurface(inst:MetalFxInstance):void{
   const s=surfaces.get(inst);if(!s||s.lost)return;
   const dpr=Math.min(GL_DPR_CAP,window.devicePixelRatio||1),w=inst.cssWidth,h=inst.cssHeight;
@@ -126,3 +132,45 @@ export function destroyDirectSurface(inst:MetalFxInstance):void{
 }
 export function disposeDirectSurfaces():void{for(const inst of surfaces.keys())destroyDirectSurface(inst);lastFailure='';}
 export function directState(){return {directSurfaces:surfaces.size,directError:lastFailure};}
+
+/** Detached, fixed-geometry renderer for cache generation. It never registers
+ * a live surface, inserts DOM, or changes the source instance. Construction
+ * failures clean up here; a successful caller owns dispose(). */
+export function createDirectBaker(inst:MetalFxInstance,preset:PresetMode){
+  if(inst.mask||inst.deform)throw Error('Ring atlas requires a rigid ring');
+  const canvas=document.createElement('canvas');
+  const dpr=Math.min(GL_DPR_CAP,window.devicePixelRatio||1),w=inst.cssWidth,h=inst.cssHeight;
+  if(![w,h,dpr,inst.cornerRadius,inst.ringCssPx,inst.shaderScale,inst.opacityMul].every(Number.isFinite)||w<=0||h<=0||dpr<=0||inst.shaderScale<=0)throw Error('Invalid ring atlas geometry');
+  canvas.width=Math.max(1,Math.round(w*dpr));canvas.height=Math.max(1,Math.round(h*dpr));
+  let gl:WebGL2RenderingContext|null=null,built:ReturnType<typeof pipeline>|null=null,disposed=false;
+  const dispose=()=>{
+    if(disposed)return;disposed=true;
+    if(gl){
+      if(built){gl.deleteBuffer(built.buffer);gl.deleteTexture(built.texture);gl.deleteProgram(built.program);}
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
+    canvas.width=canvas.height=1;
+  };
+  try{
+    gl=canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:true,antialias:false,depth:false,stencil:false,powerPreference:'low-power'});
+    if(!gl)throw Error('Ring atlas WebGL2 unavailable');
+    built=pipeline(gl);
+    const {uniforms:u}=built,mesh=ringMesh(w,h,inst.cornerRadius,inst.ringCssPx,dpr),vertices=mesh.length/2;
+    const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
+    const maxViewport=gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array;
+    if(canvas.width>Math.min(maxTextureSize,maxViewport[0])||canvas.height>Math.min(maxTextureSize,maxViewport[1]))throw Error('Ring atlas frame exceeds WebGL limits');
+    gl.viewport(0,0,canvas.width,canvas.height);
+    gl.bindBuffer(gl.ARRAY_BUFFER,built.buffer);gl.bufferData(gl.ARRAY_BUFFER,mesh,gl.STATIC_DRAW);
+    gl.uniform2f(u.u_ctCrop,Math.min(1,w/(CANONICAL_PILL_W*inst.shaderScale)),Math.min(1,h/(CANONICAL_PILL_H*inst.shaderScale)));
+    gl.uniform2f(u.u_ctSize,w,h);gl.uniform1f(u.u_ctRadius,inst.cornerRadius);gl.uniform1f(u.u_ctRing,inst.ringCssPx);gl.uniform1f(u.u_ctDpr,dpr);
+    gl.uniform2f(u.u_resolution,CANONICAL_GL_SIZE*dpr,CANONICAL_GL_SIZE*dpr);gl.uniform1f(u.u_pixelRatio,dpr);
+    gl.uniform4fv(u.u_colorBack,hexToRgba(preset.colorBack));gl.uniform4fv(u.u_colorTint,hexToRgba(preset.colorTint));
+    for(const field of ['repetition','softness','shiftRed','shiftBlue','distortion','contour','angle','shape','originX','originY','worldWidth','worldHeight','fit','scale','rotation','offsetX','offsetY'] as const)gl.uniform1f(u[`u_${field}`],preset[field]);
+    gl.uniform1f(u.u_imageAspectRatio,1);gl.uniform1f(u.u_ctAlpha,inst.opacityMul*preset.shaderOpacity);
+    const context=gl,speed=preset.speed;
+    return {canvas,dpr,maxTextureSize,render(time:number){
+      if(disposed||context.isContextLost())throw Error('Ring atlas renderer unavailable');
+      context.uniform1f(u.u_time,time*speed);context.clear(context.COLOR_BUFFER_BIT);context.drawArrays(context.TRIANGLE_STRIP,0,vertices);
+    },dispose};
+  }catch(error){dispose();throw error;}
+}

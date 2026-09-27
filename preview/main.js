@@ -5,6 +5,8 @@ import {runtimeState} from '../src/vendor/material-runtime.js';
 
 const $=selector=>document.querySelector(selector);
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function waitForRings(){const started=performance.now();while(runtimeState().cachedRings<2&&performance.now()-started<5000)await wait(50);}
+const ringAnimations=()=>[...document.querySelectorAll('.ctmb-ring-frames img')].flatMap(img=>img.getAnimations());
 const arrow='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
 const stop='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg>';
 const chevron='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m5 6 3 3 3-3"/></svg>';
@@ -123,7 +125,16 @@ $('#tests').onclick=async()=>{
       check('Blocked image decoding retains the original CSS beam',$('.ctmb-cached-beam').dataset.raster==='css'&&!!$('.ctmb-beam-frame [data-beam]')&&library.getStatus().error==='');
     }finally{HTMLImageElement.prototype.decode=decode;library.setConfig({beam:false});library.setConfig({beam:true});}await wait(350);
     check('Beam recovers its cache after a failed mount',$('.ctmb-cached-beam').dataset.raster==='ready');
-    const smoothStart=runtimeState().directFrames;await wait(510);check('Visible idle rings receive smooth updates with low-rate auxiliary sampling',runtimeState().directFrames-smoothStart>=20&&library.getStatus().auxiliaryFps===6&&library.getStatus().loopScheduled,{framesIn510ms:runtimeState().directFrames-smoothStart});
+    await waitForRings();
+    const smoothStart=runtimeState().directFrames,players=ringAnimations(),playerTimes=players.map(a=>a.currentTime),ringPaints=[...document.querySelectorAll('.ctmb-ring-frames img')].map(img=>img.src);await wait(510);
+    check('Cached native-resolution rings keep moving without live shader draws',players.length===2&&players.every((a,i)=>a.currentTime-playerTimes[i]>=400)&&runtimeState().directFrames===smoothStart&&library.getStatus().auxiliaryFps===6,{liveRingDraws:runtimeState().directFrames-smoothStart,cachedRings:runtimeState().cachedRings});
+    check('Ring playback uses fixed images and 60 fps transform samples',players.every(a=>{const frames=a.effect.getKeyframes();return Math.abs(a.effect.getTiming().duration/(frames.length-1)-1000/60)<.01&&frames.every(k=>Object.keys(k).every(key=>['offset','computedOffset','easing','composite','transform'].includes(key)));})&&ringPaints.every((src,i)=>src===document.querySelectorAll('.ctmb-ring-frames img')[i].src));
+    check('Ring cache stays within its package memory budget',runtimeState().ringCacheBytes>0&&runtimeState().ringCacheBytes<=64*1024*1024&&!runtimeState().ringCachePending&&!runtimeState().ringCacheError);
+    const wideRow=$('.sidebar-row[data-app-action-sidebar-thread-active="true"]'),oldWidth=wideRow.style.width;
+    wideRow.style.width='360px';await wait(150);await waitForRings();
+    const wideImage=wideRow.querySelector('.ctmb-ring-frames img');
+    check('A wide Retina sidebar caches without lowering resolution',runtimeState().cachedRings===2&&!!wideImage&&Math.abs(wideImage.naturalWidth/parseFloat(wideImage.style.width)-Math.min(devicePixelRatio,2))<.001&&wideImage.naturalWidth<=4096&&wideImage.naturalHeight<=4096);
+    wideRow.style.width=oldWidth;await wait(150);await waitForRings();
     check('Model overlay is accessibility-empty and pointer-transparent without canvas or blur',getComputedStyle(modelName,'::after').pointerEvents==='none'&&getComputedStyle(modelName,'::after').content.endsWith('/ ""')&&!model.querySelector('canvas')&&getComputedStyle(modelName,'::after').filter==='none');
     const modelOpacity=getComputedStyle(modelName,'::after').opacity,modelPaint=getComputedStyle(modelName,'::after').backgroundImage,modelScans=library.getStatus().scans;await wait(160);
     check('Idle model iridescence changes only opacity without rescans',getComputedStyle(modelName,'::after').opacity!==modelOpacity&&getComputedStyle(modelName,'::after').backgroundImage===modelPaint&&library.getStatus().scans===modelScans&&modelName.getAnimations({subtree:true}).every(anim=>anim.effect.getKeyframes().every(frame=>Object.keys(frame).every(key=>['offset','computedOffset','easing','composite','opacity'].includes(key)))));
@@ -153,8 +164,9 @@ $('#tests').onclick=async()=>{
     check('Running keeps smooth rings and raises only auxiliary sampling',library.getStatus().targetFps===60&&library.getStatus().auxiliaryFps===12);
     const mountingCount=document.querySelectorAll('[data-codex-tweaks-mb-owned="metal"]').length;
     check('No doubled mounts after native icon replacement',mountingCount===2&&!$('.voice').querySelector('.ctmb-metal-mount'));
-    library.setConfig({motion:false});await wait(260);const pausedFrame=runtimeState().frames,pausedDirect=runtimeState().directFrames;await wait(260);
+    library.setConfig({motion:false});await wait(260);const pausedFrame=runtimeState().frames,pausedDirect=runtimeState().directFrames,pausedPlayers=ringAnimations().map(a=>[a,a.currentTime]);await wait(260);
     check('Pause stops shader frame count',runtimeState().frames===pausedFrame&&runtimeState().directFrames===pausedDirect&&!runtimeState().loopScheduled,runtimeState());
+    check('Pause freezes cached rings at their current frame',pausedPlayers.length===2&&pausedPlayers.every(([a,time])=>a.playState==='paused'&&a.currentTime===time));
     check('Pause freezes model text color too',getComputedStyle($('.model-name'),'::after').animationPlayState==='paused');
     const wordPaused=getComputedStyle($('.mode-label'),'::after').opacity;await wait(140);
     check('Pause freezes mode word colors',getComputedStyle($('.mode-label'),'::after').animationPlayState==='paused'&&getComputedStyle($('.mode-label'),'::after').opacity===wordPaused);
@@ -163,10 +175,12 @@ $('#tests').onclick=async()=>{
     check('Remount while paused still paints',runtimeState().frames>0&&!!$('.ctmb-metal-fx-root')&&getComputedStyle($('.ctmb-metal-fx-root')).visibility==='visible');
     library.setConfig({motion:true});await wait(240);const resumeFrame=runtimeState().frames;await wait(410);
     check('Resume restarts rendering',runtimeState().frames>resumeFrame);
-    document.documentElement.dataset.theme='light';await wait(240);
+    await waitForRings();const darkRing=$('.send .ctmb-ring-frames img').src;
+    document.documentElement.dataset.theme='light';await wait(240);await waitForRings();
+    check('Theme changes replace the cached material',!!$('.send .ctmb-ring-frames img')&&$('.send .ctmb-ring-frames img').src!==darkRing&&!runtimeState().ringCacheError);
     const direct=$('.send [data-ctmb-direct]'),source=$('.send .ctmb-metal-fx-canvas:not([data-ctmb-direct])');
     const gl=direct.getContext('webgl2'),loss=gl.getExtension('WEBGL_lose_context');loss.loseContext();await wait(220);
-    check('Lost direct context falls back to the existing material',direct.hidden&&source.style.opacity!=='0'&&source.width>0);
+    check('Cached ring survives a lost live context without exposing duplicate layers',direct.hidden&&source.style.opacity==='0'&&!!$('.send .ctmb-ring-frames img')&&ringAnimations().some(a=>a.playState==='running'));
     loss.restoreContext();await wait(450);
     check('Restored direct context resumes and hides its fallback',!direct.hidden&&source.style.opacity==='0'&&gl.getError()===gl.NO_ERROR&&!runtimeState().directError);
     check('Light theme removes dark reflections',library.getStatus().reflections===0&&$('.ctmb-metal-fx-root')?.dataset.theme==='light');
@@ -175,10 +189,17 @@ $('#tests').onclick=async()=>{
     const originalButton=$('.send');const originalSVG=originalButton.querySelector('svg');
     disable();await wait(240);
     check('Cleanup releases GL, canvases, styles, haze, and owned attributes',!runtimeState().webgl&&runtimeState().instances===0&&runtimeState().directSurfaces===0&&document.querySelectorAll('canvas,[data-codex-tweaks-mb-account],[data-codex-tweaks-mb-model],[data-codex-tweaks-mb-model-text],[data-codex-tweaks-mb-model-content],[data-codex-tweaks-mb-model-tone],[data-codex-tweaks-mb-model-paused],[data-codex-tweaks-mb-wordmark],[data-codex-tweaks-mb-wordmark-paused],[data-codex-tweaks-mb-surface],[data-codex-tweaks-mb-owned],[data-codex-tweaks-mb-metal],[data-codex-tweaks-mb-position],[data-ctmb-metal-fx-reflection],#ctmb-metal-fx-styles,#ctmb-mfx-bend-style').length===0);
+    check('Cleanup releases cached ring images, animations and memory reservations',runtimeState().ringCacheBytes===0&&runtimeState().cachedRings===0&&runtimeState().ringCachePending===0&&document.querySelectorAll('.ctmb-ring-frames').length===0);
     check('Cleanup restores native disabled dimming',getComputedStyle($('.send')).opacity==='0.25');
     check('Cleanup preserves native nodes and neighbor styles',$('.send')===originalButton&&originalButton.querySelector('svg')===originalSVG&&$('.voice').style.position===''&&$('.voice').style.isolation===''&&$('.model').style.position==='');
     for(let i=0;i<3;i++){enable();await wait(160);disable();await wait(80);}
     check('Repeated activation leaves no effect nodes',document.querySelectorAll('[data-codex-tweaks-mb-owned],canvas').length===0&&!runtimeState().webgl);
+    const originalDecode=HTMLImageElement.prototype.decode;
+    try{
+      HTMLImageElement.prototype.decode=function(){return Promise.reject(new Error('fixture ring decode unavailable'));};
+      enable();await wait(1300);const fallbackFrames=runtimeState().directFrames;await wait(220);
+      check('Failed ring image decoding retains moving live material and releases its reservation',runtimeState().cachedRings===0&&runtimeState().ringCacheBytes===0&&!!runtimeState().ringCacheError&&runtimeState().directFrames>fallbackFrames&&[...document.querySelectorAll('[data-ctmb-direct]')].every(canvas=>canvas.style.visibility!=='hidden'));
+    }finally{disable();HTMLImageElement.prototype.decode=originalDecode;}
     enable();await wait(350);check('Reactivated successfully',library.getStatus().metals===2&&library.getStatus().reflections===1&&library.getStatus().modelBands===1);
     const startScans=library.getStatus().scans;const stream=document.createElement('p');document.body.append(stream);
     for(let i=0;i<20;i++){stream.textContent+='word ';await wait(8);}await wait(150);
@@ -195,6 +216,7 @@ $('#tests').onclick=async()=>{
       const frameCount=runtimeState().frames;await wait(300);
       check('Window blur freezes the shader and clears its scheduled work',library.getStatus().paused&&frameCount===runtimeState().frames&&!runtimeState().loopScheduled);
       check('Window blur freezes all decorative CSS motion',[...document.getAnimations()].filter(a=>a.animationName?.startsWith('ctmb-')).every(a=>a.playState==='paused'||a.playState==='finished'));
+      check('Window blur also freezes cached ring playback',ringAnimations().every(a=>a.playState==='paused')&&runtimeState().ringCachePending===0);
     }finally{if(focusDescriptor)Object.defineProperty(document,'hasFocus',focusDescriptor);else delete document.hasFocus;window.dispatchEvent(new FocusEvent('focus'));}
     await wait(250);const focusedFrame=runtimeState().frames;await wait(250);
     check('Refocusing resumes the existing material',!library.getStatus().paused&&runtimeState().frames>focusedFrame);

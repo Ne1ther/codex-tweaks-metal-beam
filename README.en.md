@@ -28,11 +28,11 @@ You need the Codex desktop app and a working Codex Tweaks API v3 host. This is a
 
 1. In Codex Tweaks, open **Packages → Install from Git**.
 2. Use `https://github.com/Ne1ther/codex-tweaks-metal-beam.git`.
-3. Select the released `v0.3.9` tag, or the latest semantic-version tag selector for updates.
+3. Select the released `v0.3.10` tag, or the latest semantic-version tag selector for updates.
 4. After installation and compilation, enable **ct-metal-beam**.
 5. Focus the Codex window to see the idle animation.
 
-Alternatively, download **ct-metal-beam-0.3.9.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
+Alternatively, download **ct-metal-beam-0.3.10.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
 
 For an existing installation, use the host's update flow for the same package ID. Avoid enabling duplicate copies of the effect.
 
@@ -44,9 +44,9 @@ Open `preview/standalone.html` for an offline demonstration. Its settings panel 
 
 ## Performance and compatibility
 
-Small WebGL canvases draw narrow metal rings at up to 60 fps. Reflections share a lower-rate source; the model labels crossfade two fixed glyph-clipped gradients, while Beam uses cached textures. Hover does not create new material instances or move native buttons.
+Version 0.3.10 bakes the original Metal shader into native-resolution frame atlases and plays them through transform animations with 1/60-second samples. Cached rings need no per-frame JavaScript or shader draw. Reflections retain their low-rate source; model labels and Beam keep their fixed-texture opacity animations. Hover never moves native buttons.
 
-A six-pair, short-window saturated-training experiment with version 0.3.6 on an Apple M3 Max measured approximately **1.6% lower training throughput**, with the real rendering code running at about **50 fps in a fixed preview layout**. This is not a whole-Codex benchmark, a long-run guarantee, or a promise of GPU usage below 5%. See [methodology and limitations](docs/PERFORMANCE.md).
+Two idle Retina-preview windows per version measured about **33% less main-thread time** and **49% less script time** than 0.3.9. Separate GPU timer queries measured about **94% less shader execution time**; that excludes composition and is not a whole-Codex GPU-utilization reduction. Atlas data is capped at 32 MiB per ring and 64 MiB per runtime, excluding browser copies and staging. First generation/rebuilding has a cost; oversized or failed caches retain live rendering. See [methodology, tradeoffs and historical training results](docs/PERFORMANCE.md).
 
 macOS has been exercised; Windows and Linux have not. Light/dark appearance and reduced motion are handled. Metal rendering needs WebGL2. Control matching uses observable Codex DOM markers and may need updating after app changes. Multiple windows and overlapping theme packages can increase cost or change appearance.
 
