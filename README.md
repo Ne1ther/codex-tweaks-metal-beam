@@ -15,7 +15,7 @@
 | 输入框 | Border Beam 边缘流光，运行时增强；装饰不进入输入框的滚动布局 |
 | 侧栏当前选中项 | 金属光影；切换选中项时复用已有材质画布 |
 | 侧栏其他任务行 | 轻量悬停亮度变化 |
-| 模型与档位文字 | 沿文字中央铺开的柔雾，四边渐隐，并避开下拉箭头 |
+| 模型与档位文字 | 仅文字笔画内缓慢交融的银白、淡蓝与浅紫；按钮背景和下拉箭头保持原样 |
 | 左上 Codex / ChatGPT 名称 | 只在文字笔画内流动的淡彩，不给整个按钮上色 |
 
 装饰层不接管点击、发送、语音或模型选择操作。动画在窗口失焦、页面隐藏或系统开启“减少动态效果”时暂停，回到窗口后恢复。它不提供原生窗口透明、Ghostty 式背景模糊或 HDR 输出。
@@ -30,13 +30,13 @@
 
 1. 打开原版 Codex Tweaks → **功能包** → **从 Git 安装**。
 2. 填入仓库地址：`https://github.com/Ne1ther/codex-tweaks-metal-beam.git`。
-3. 选择发布标签 `v0.3.8`，或选择最新语义化版本标签以接收后续版本。
+3. 选择发布标签 `v0.3.9`，或选择最新语义化版本标签以接收后续版本。
 4. 安装和编译完成后，打开 **ct-metal-beam** 的开关。
 5. 回到 Codex，让窗口获得焦点，即可看到空闲状态下的光效。
 
 ### 从 ZIP 安装
 
-在 [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) 下载 **ct-metal-beam-0.3.8.zip**，然后在 Tweaks 功能包页面选择“安装本地包”。这个 ZIP 根目录直接包含 `package.json`，不包含宿主应用、依赖目录或符号链接。
+在 [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) 下载 **ct-metal-beam-0.3.9.zip**，然后在 Tweaks 功能包页面选择“安装本地包”。这个 ZIP 根目录直接包含 `package.json`，不包含宿主应用、依赖目录或符号链接。
 
 已有本地版本时，先确认它的包名同样是 `ct-metal-beam`，使用宿主提供的更新流程。避免同时启用多份相同效果的副本。
 
@@ -81,7 +81,7 @@ npm test
 npm run package
 ```
 
-最后一步需要 `zip` 命令，生成 `dist/ct-metal-beam-0.3.8.zip` 和校验文件。目录结构、预览、发布以及安装版和源码版的关系见 [开发说明](docs/DEVELOPMENT.md)。
+最后一步需要 `zip` 命令，生成 `dist/ct-metal-beam-0.3.9.zip` 和校验文件。目录结构、预览、发布以及安装版和源码版的关系见 [开发说明](docs/DEVELOPMENT.md)。
 
 ## 致谢与许可
 

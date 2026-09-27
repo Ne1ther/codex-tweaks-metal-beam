@@ -296,12 +296,12 @@ export function addReflectionTarget(
 
   const canvas = document.createElement('canvas');
   canvas.className = 'ctmb-metal-fx-reflection-canvas';
-  const ctx = canvas.getContext('2d', { alpha: true, willReadFrequently: true });
+  const ctx = canvas.getContext('2d', { alpha: true, willReadFrequently: REFLECTION_OCCLUDER.enabled });
   if (!ctx) return null;
 
   const strokeCanvas = document.createElement('canvas');
   strokeCanvas.className = 'ctmb-metal-fx-reflection-stroke-canvas';
-  const strokeCtx = strokeCanvas.getContext('2d', { alpha: true, willReadFrequently: true });
+  const strokeCtx = strokeCanvas.getContext('2d', { alpha: true, willReadFrequently: REFLECTION_OCCLUDER.enabled });
   if (!strokeCtx) return null;
 
   wrap.appendChild(canvas);

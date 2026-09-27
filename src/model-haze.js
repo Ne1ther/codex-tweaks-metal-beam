@@ -1,20 +1,57 @@
-// The soft paths are static SVG images. Their textures move as two composited
-// layers; neither the paths nor blur filters are recalculated on pointer input.
-function ribbon(path,colors){
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="72" viewBox="0 0 600 72" preserveAspectRatio="none"><defs><linearGradient id="silk"><stop stop-color="${colors[0]}" stop-opacity=".14"/><stop offset=".28" stop-color="${colors[1]}" stop-opacity=".6"/><stop offset=".62" stop-color="${colors[2]}" stop-opacity=".52"/><stop offset="1" stop-color="${colors[0]}" stop-opacity=".12"/></linearGradient><filter id="mist" x="-20%" y="-100%" width="140%" height="300%"><feGaussianBlur stdDeviation="9"/></filter></defs><path d="${path}" fill="none" stroke="url(#silk)" stroke-width="15" stroke-linecap="round" filter="url(#mist)"/></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+// Keep the modelHaze preference compatible, but paint only native text glyphs.
+// Both color fields are fixed; only the small overlay's opacity is animated.
+const LABEL='data-codex-tweaks-mb-model-text';
+const CONTENT='data-codex-tweaks-mb-model-content';
+const TONE='data-codex-tweaks-mb-model-tone';
+function textLabels(trigger){
+  const anchors=[...trigger.querySelectorAll('[class*="ModelPickerTriggerLabel_"],[class*="ModelPickerTriggerPlaceholder_"]')];
+  const candidates=anchors.length?anchors.flatMap(el=>[el,...el.querySelectorAll('span')]):[...trigger.querySelectorAll('span')];
+  return [...new Set(candidates)].filter(el=>!el.children.length&&el.textContent.trim()&&
+    !el.closest('[hidden],[aria-hidden="true"],.sr-only,[class*="ModelPickerTriggerMeasurement_"],svg,[data-codex-tweaks-mb-owned]')&&
+    el.checkVisibility({checkOpacity:true,checkVisibilityCSS:true}));
 }
-const near=ribbon('M-50 36 C30 22 93 23 164 35 S275 50 349 35 S459 23 515 36 S599 49 657 32',['#bfd2df','#93bce4','#c2afe0']);
-const far=ribbon('M-60 31 C16 48 93 50 164 34 S270 23 339 37 S459 49 528 32 S615 25 665 39',['#b9cfd7','#c9b7d7','#96cdd1']);
+function set(el,key,value){if(el.getAttribute(key)!==value)el.setAttribute(key,value);}
+export function mountModelText(trigger){
+  const labels=new Map();let frame=0,live=true;
+  function sync(){
+    frame=0;if(!live)return;
+    const wanted=textLabels(trigger);
+    for(const [el,restore] of labels)if(!wanted.includes(el)){restore();labels.delete(el);}
+    for(const [index,el] of wanted.entries()){
+      if(!labels.has(el)){
+        const saved=[LABEL,CONTENT,TONE].map(key=>[key,el.getAttribute(key)]);
+        labels.set(el,()=>{for(const [key,value] of saved){if(value===null)el.removeAttribute(key);else set(el,key,value);}});
+      }
+      set(el,LABEL,'');set(el,CONTENT,el.textContent);set(el,TONE,index?'secondary':'primary');
+    }
+  }
+  const observer=new MutationObserver(()=>{if(live&&!frame)frame=requestAnimationFrame(sync);});
+  // Native React children remain untouched. Observe only the model trigger,
+  // including hidden effort text and replaced labels, never the conversation.
+  observer.observe(trigger,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','hidden','aria-hidden']});
+  sync();
+  return {refresh(){if(frame)cancelAnimationFrame(frame);sync();},dispose(){live=false;observer.disconnect();if(frame)cancelAnimationFrame(frame);for(const restore of labels.values())restore();labels.clear();}};
+}
 export const MODEL_HAZE_CSS=`
-[data-codex-tweaks-mb-model] {isolation:isolate}
-.ctmb-model-haze {position:absolute;z-index:-1;display:block;pointer-events:none;overflow:hidden;contain:strict;mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent),linear-gradient(0deg,transparent,#000 14%,#000 86%,transparent);mask-composite:intersect}
-.ctmb-model-haze[hidden] {display:none}
-.ctmb-model-haze i {display:block;position:absolute;left:-40%;top:0;width:180%;height:100%;background-image:${near};background-repeat:no-repeat;background-size:100% 100%;transform-origin:50% 50%;will-change:transform;animation:ctmb-model-silk 13s cubic-bezier(.42,0,.58,1) infinite alternate}
-.ctmb-model-haze i + i {background-image:${far};animation-name:ctmb-model-silk-back;animation-duration:19s;animation-delay:-7s;opacity:.8}
-[data-codex-tweaks-mb-model="light"] > .ctmb-model-haze {opacity:.8}
-.ctmb-model-haze[data-paused="true"] i {animation-play-state:paused;will-change:auto}
-@keyframes ctmb-model-silk {0%{transform:translate3d(-10%,0,0) scaleY(.9) rotate(-.5deg)}50%{transform:translate3d(0,-.5px,0) scaleY(1.16) rotate(.4deg)}100%{transform:translate3d(10%,.5px,0) scaleY(1.02) rotate(-.2deg)}}
-@keyframes ctmb-model-silk-back {0%{transform:translate3d(9%,.5px,0) scaleY(1.05) rotate(.4deg)}50%{transform:translate3d(-1%,0,0) scaleY(.85) rotate(-.3deg)}100%{transform:translate3d(-9%,-.5px,0) scaleY(1.15) rotate(.2deg)}}
-@media (prefers-reduced-motion:reduce){.ctmb-model-haze i{animation-play-state:paused!important}}
+[data-codex-tweaks-mb-model-text] {
+  position:relative;
+  --ctmb-model-ink:#dce3ed;--ctmb-model-blue:#a8cddd;--ctmb-model-violet:#cbbfe0;
+  background-image:linear-gradient(112deg,var(--ctmb-model-ink) 5%,var(--ctmb-model-blue) 45%,var(--ctmb-model-violet) 80%,var(--ctmb-model-ink));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+[data-codex-tweaks-mb-model-text]::after {
+  content:attr(data-codex-tweaks-mb-model-content) / "";
+  position:absolute;inset:0;pointer-events:none;font:inherit;letter-spacing:inherit;white-space:inherit;text-align:inherit;
+  overflow:hidden;text-overflow:inherit;
+  background-image:linear-gradient(112deg,var(--ctmb-model-violet) 3%,var(--ctmb-model-ink) 40%,var(--ctmb-model-blue) 86%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  opacity:.12;animation:ctmb-model-iridescence 12s cubic-bezier(.45,0,.55,1) -4s infinite alternate;
+}
+[data-codex-tweaks-mb-model-tone="secondary"] {--ctmb-model-ink:#afb2bf;--ctmb-model-blue:#8fabbd;--ctmb-model-violet:#b0a3bf}
+[data-codex-tweaks-mb-model="light"] [data-codex-tweaks-mb-model-text] {--ctmb-model-ink:#444957;--ctmb-model-blue:#3d6578;--ctmb-model-violet:#706181}
+[data-codex-tweaks-mb-model="light"] [data-codex-tweaks-mb-model-tone="secondary"] {--ctmb-model-ink:#666876;--ctmb-model-blue:#547585;--ctmb-model-violet:#7b6e88}
+[data-codex-tweaks-mb-model-paused="true"] [data-codex-tweaks-mb-model-text]::after {animation-play-state:paused}
+@keyframes ctmb-model-iridescence {from{opacity:.12}to{opacity:.84}}
+@media (prefers-reduced-motion:reduce){[data-codex-tweaks-mb-model-text]::after{animation-play-state:paused!important}}
+@media (forced-colors:active){[data-codex-tweaks-mb-model-text]{background:none!important;-webkit-text-fill-color:currentColor!important}[data-codex-tweaks-mb-model-text]::after{display:none!important}}
 `;

@@ -28,6 +28,7 @@ ${WORDMARK_CSS}
 .ctmb-glow-portal,.ctmb-beam-mount {position:absolute;left:0;top:0;overflow:visible;pointer-events:none!important}
 .ctmb-cached-beam {position:absolute;inset:0;pointer-events:none;transition:opacity .35s ease}
 .ctmb-beam-frame {position:absolute;inset:0;border-radius:inherit;opacity:0;will-change:opacity;animation:ctmb-beam-crossfade 16s linear infinite}
+.ctmb-beam-texture {display:block;width:100%;height:100%;pointer-events:none}
 @keyframes ctmb-beam-crossfade {0%,100%{opacity:1}25%,75%{opacity:0}}
 .ctmb-beam-mount {box-shadow:inset 0 0 0 1px rgba(161,184,216,.15)}
 .ctmb-beam-mount[data-theme="light"] {box-shadow:inset 0 0 0 1px rgba(72,99,132,.14)}

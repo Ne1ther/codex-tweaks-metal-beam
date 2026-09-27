@@ -74,7 +74,7 @@ export function createDirectSurface(inst:MetalFxInstance):void{
   canvas.style.cssText=inst.canvas.style.cssText;
   let gl:WebGL2RenderingContext|null=null;
   try{
-    gl=canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:true,antialias:false,powerPreference:'low-power'});
+    gl=canvas.getContext('webgl2',{alpha:true,premultipliedAlpha:true,antialias:false,depth:false,stencil:false,powerPreference:'low-power'});
     if(!gl)throw Error('Direct WebGL2 unavailable');
     const built=pipeline(gl);
     const s:Surface={canvas,gl,...built,preset:null,lost:false,detach:()=>{},sourceOpacity:inst.canvas.style.opacity,signature:'',vertices:0,time:0};

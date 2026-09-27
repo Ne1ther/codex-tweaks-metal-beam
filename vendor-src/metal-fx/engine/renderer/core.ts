@@ -261,14 +261,14 @@ export function ensureSharedRenderer(): SharedRenderer {
   if (useOffscreen) {
     glCanvas = new OffscreenCanvas(size, size);
     gl = glCanvas.getContext('webgl2', {
-      alpha: true, premultipliedAlpha: true, antialias: false,
+      alpha: true, premultipliedAlpha: true, antialias: false, depth:false, stencil:false, powerPreference:'low-power',
     }) as WebGL2RenderingContext | null;
   } else {
     const htmlCanvas = document.createElement('canvas');
     htmlCanvas.width = size;
     htmlCanvas.height = size;
     gl = htmlCanvas.getContext('webgl2', {
-      alpha: true, premultipliedAlpha: true, antialias: false, preserveDrawingBuffer: true,
+      alpha: true, premultipliedAlpha: true, antialias: false, depth:false, stencil:false, powerPreference:'low-power', preserveDrawingBuffer: true,
     }) as WebGL2RenderingContext | null;
     glCanvas = htmlCanvas;
   }

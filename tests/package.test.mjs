@@ -27,7 +27,7 @@ test('Send / stop matching accepts control metadata without matching ordinary la
 });
 test('Distribution is renderer-only API v3, local bundled dependencies, without symlinks',()=>{
   const manifest=JSON.parse(fs.readFileSync(path.join(base,'package.json')));
-  assert.equal(manifest.name,'ct-metal-beam');assert.equal(manifest.version,'0.3.8');
+  assert.equal(manifest.name,'ct-metal-beam');assert.equal(manifest.version,'0.3.9');
   assert.equal(manifest.codexTweaks.apiVersion,3);assert.deepEqual(manifest.dependencies,{});
   assert.equal(manifest.codexTweaks.entrypoints.node,undefined);assert.equal(manifest.codexTweaks.permissions,undefined);assert.equal(manifest.codexTweaks.ui,undefined);
   function walk(dir){for(const item of fs.readdirSync(dir)){if(item==='node_modules')continue;const file=path.join(dir,item);const stat=fs.lstatSync(file);assert.equal(stat.isSymbolicLink(),false,file);if(stat.isDirectory())walk(file);else assert.ok(stat.isFile(),file);}}

@@ -1,4 +1,4 @@
-import {OWN,METAL} from './style.js';
+import {OWN,METAL,SURFACE_MARK} from './style.js';
 import {stopLabel,sendLabel} from './config.js';
 export const COMPOSER='[data-codex-composer-root]';
 export const SURFACE='[data-composer-surface-variant]';
@@ -15,37 +15,6 @@ const name=el=>el.getAttribute('aria-label')||el.getAttribute('title')||'';
 export const isOwned=node=>!!node?.closest?.(`[${OWN}],[data-ctmb-metal-fx-reflection],.ctmb-settings`);
 export const voiceLabel=(value='')=>/^(?:(?:start(?: new)?|stop|use|toggle) )?(?:voice(?: mode| input| chat)?|dictation|dictate|microphone|语音(?:输入|聊天)?|(?:开始|停止|使用|切换)?(?:语音|听写|录音))$/i.test(value.trim());
 export function isModelTrigger(el){return el.matches(MODEL_TRIGGER)||/^(?:(?:select|change|choose) model|(?:选择|切换)模型)$/i.test(name(el).trim());}
-export function modelTextBand(el){
-  const box=geometry(el);if(!box)return null;
-  // The visible native label excludes the chevron and invisible measurement
-  // text. Read geometry only; keep its text and React-owned children intact.
-  const anchor=[...el.querySelectorAll('[class*="ModelPickerTriggerLabel_"],[class*="ModelPickerTriggerPlaceholder_"]')].find(node=>node.checkVisibility?.({checkOpacity:true,checkVisibilityCSS:true}));
-  let textBox=anchor?.getBoundingClientRect();
-  if(!textBox){
-    const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),rects=[];
-    for(let node=walker.nextNode();node;node=walker.nextNode()){
-      if(!node.length||node.parentElement.closest('svg,[aria-hidden="true"],.sr-only')||isOwned(node.parentElement))continue;
-      const range=document.createRange();range.selectNodeContents(node);
-      for(const rect of range.getClientRects())if(rect.width>0&&rect.height>2)rects.push(rect);
-    }
-    if(!rects.length)return null;
-    const left=Math.min(...rects.map(r=>r.left)),right=Math.max(...rects.map(r=>r.right)),top=Math.min(...rects.map(r=>r.top)),bottom=Math.max(...rects.map(r=>r.bottom));
-    textBox={left,right,top,bottom,width:right-left,height:bottom-top};
-  }
-  const scale=box.width/el.offsetWidth||1;
-  // Keep transparent margins inside the native trigger, including short labels.
-  const inset=2,clientW=el.clientWidth,clientH=el.clientHeight;
-  const textLeft=(textBox.left-box.x)/scale-el.clientLeft;
-  const textRight=(textBox.left+textBox.width-box.x)/scale-el.clientLeft;
-  const chevron=el.querySelector('svg')?.getBoundingClientRect();
-  const maxRight=chevron?(chevron.left-box.x)/scale-el.clientLeft-1:clientW-inset;
-  const x=Math.max(inset,textLeft-7),right=Math.min(clientW-inset,maxRight,textRight+5);
-  const height=Math.min(30,Math.max(0,clientH-2*inset),textBox.height/scale*1.7);
-  if(right<=x||height<4)return null;
-  const center=(textBox.top+textBox.height/2-box.y)/scale-el.clientTop;
-  const y=Math.max(inset,Math.min(clientH-inset-height,center-height/2));
-  return {anchor,x,y,width:right-x,height};
-}
 export function geometry(el,{occlusion=true}={}) {
   if(!el?.isConnected||el.closest('[hidden],[aria-hidden="true"]'))return null;
   const box=el.getBoundingClientRect();
@@ -155,8 +124,21 @@ export function theme(){
 }
 export function relevantMutation(records){
   return records.some(record=>{
-    if(isOwned(record.target))return false;
-    if(record.type==='attributes')return record.attributeName==='data-theme'||record.target===document.documentElement||record.target===document.body||!!record.target.closest(ZONE);
+    if(isOwned(record.target)||record.target.closest?.(EXCLUDED))return false;
+    if(record.type==='attributes'){
+      const el=record.target,key=record.attributeName;
+      if(el===document.documentElement||el===document.body||key==='data-theme')return true;
+      // A title/spinner changing class is not a new target. Check actual
+      // controls and structural ancestors, not every descendant of a zone.
+      if(!el.closest(ZONE)&&!el.querySelector(ZONE))return false;
+      if(el.matches(`${COMPOSER},${SURFACE},${CONTROL},${PANEL},${SIDEBAR},[data-codex-tweaks-mb-wordmark]`))return true;
+      return ['class','hidden','aria-hidden'].includes(key)&&!!el.querySelector(`${COMPOSER},${SIDEBAR},[${METAL}],[${SURFACE_MARK}],[data-codex-tweaks-mb-model]`);
+    }
     return [...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&!isOwned(node)&&(node.matches(`${COMPOSER},${SURFACE},${CONTROL},${PANEL}`)||node.querySelector(`${COMPOSER},${SURFACE},${CONTROL},${PANEL}`)));
   });
+}
+export function selectionMutation(records){
+  return records.some(record=>record.type==='attributes'&&
+    ['aria-current','aria-selected','data-state','data-selected','data-app-action-sidebar-thread-active','data-app-action-sidebar-thread-selected'].includes(record.attributeName)&&
+    record.target.closest(SIDEBAR)&&!record.target.closest(EXCLUDED)&&record.target.matches(CONTROL));
 }

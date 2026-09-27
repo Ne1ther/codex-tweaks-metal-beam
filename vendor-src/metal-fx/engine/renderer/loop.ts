@@ -17,12 +17,13 @@ import {
   type MaskFn,
   type MetalFxInstance,
 } from './core';
-import { ensureGlowPixels } from './sampling';
+import { ensureGlowPixels,disposeGlowReadback } from './sampling';
 import { createOutlineBuf, roundRectOutline, type OutlineBuf } from './outline';
 
 // Tweaks owns these listeners; importing a disabled package has no DOM effects.
 let listening = false;
 function onContextReady(): void {
+  disposeGlowReadback();
   if (SHARED && SHARED.instances.size > 0 && SHARED.pausedAtMs === null) startSharedLoop();
 }
 function onVisibility(): void {
@@ -38,7 +39,7 @@ export function disposeRuntimeLoop(): void {
   if (listening) document.removeEventListener('visibilitychange', onVisibility);
   listening = false;
   stopSharedLoop();
-  disposeDirectSurfaces();teardownSharedRenderer();
+  disposeDirectSurfaces();disposeGlowReadback();teardownSharedRenderer();
   setContextRestoredCallback(null);
   lastFrameMs = 0;loopCallbacks=0;frameIntervalMs=1000/6;shaderPhase=0;lastShaderClock=0;lastAuxMs=0;directFrames=0;
 }
@@ -111,7 +112,7 @@ export function destroyInstance(inst: MetalFxInstance): void {
   SHARED.instances.delete(inst);
   const qi = SHARED.glowQueue.indexOf(inst);
   if (qi !== -1) SHARED.glowQueue.splice(qi, 1);
-  if (SHARED.instances.size === 0) { stopSharedLoop(); teardownSharedRenderer(); }
+  if (SHARED.instances.size === 0) { stopSharedLoop(); disposeGlowReadback();teardownSharedRenderer(); }
 }
 
 export function registerGlowInstance(inst: MetalFxInstance): void {

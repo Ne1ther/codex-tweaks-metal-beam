@@ -2,10 +2,10 @@
  * Pixel readback and luminance/colour sampling from the shared GL canvas.
  *
  * All glow luminance/color sampling reads from a shared pixel buffer
- * (SHARED.glowPixels). The buffer is refreshed via gl.readPixels at most
- * every GLOW_READBACK_INTERVAL_MS to avoid the expensive GPU→CPU pipeline
- * flush on every frame. The plasma shader evolves slowly so stale data is
- * visually indistinguishable.
+ * (SHARED.glowPixels). WebGL2 queues readPixels into a pixel-pack buffer at
+ * most every GLOW_READBACK_INTERVAL_MS. A later tick consumes it only after
+ * a zero-timeout fence check succeeds, avoiding a synchronous GPU wait.
+ * The slowly evolving glow keeps the last completed sample in between.
  *
  * The readback happens in exactly one place: the render loop, right after
  * the shader frame is drawn and before the OffscreenCanvas frame is
@@ -19,20 +19,44 @@
 import { GLOW_READBACK_INTERVAL_MS } from '../perfConfig';
 import { SHARED, CANONICAL_PILL_W, CANONICAL_PILL_H, type MetalFxInstance, type ShaderRGB } from './core';
 let _lastReadbackMs = 0;
+let readback: {gl:WebGL2RenderingContext;buffer:WebGLBuffer;fence:WebGLSync|null;size:number} | null=null;
+
+export function disposeGlowReadback():void {
+  if(readback){if(readback.fence)readback.gl.deleteSync(readback.fence);readback.gl.deleteBuffer(readback.buffer);}
+  readback=null;_lastReadbackMs=0;
+}
 
 export function ensureGlowPixels(): void {
-  if (!SHARED) return;
-  const now = performance.now();
-  if (now - _lastReadbackMs < GLOW_READBACK_INTERVAL_MS) return;
-  _lastReadbackMs = now;
+  if (!SHARED||SHARED.contextLost) return;
   const { gl, glCanvas } = SHARED;
   const cw = glCanvas.width, ch = glCanvas.height;
+  if(readback&&readback.gl!==gl)disposeGlowReadback();
+  if(!readback){const buffer=gl.createBuffer();if(!buffer)return;readback={gl,buffer,fence:null,size:0};}
+  // Queue GPU -> PBO, then consume on a later auxiliary tick only after its
+  // fence signals. Never make the main thread wait for this frame's draw.
+  if(readback.fence){
+    const status=gl.clientWaitSync(readback.fence,0,0);
+    if(status===gl.TIMEOUT_EXPIRED)return;
+    gl.deleteSync(readback.fence);readback.fence=null;
+    if(status!==gl.WAIT_FAILED&&readback.size===cw*ch*4){
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER,readback.buffer);
+      gl.getBufferSubData(gl.PIXEL_PACK_BUFFER,0,SHARED.glowPixels);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);
+    }
+  }
+  const now=performance.now();
+  if(_lastReadbackMs&&now-_lastReadbackMs<GLOW_READBACK_INTERVAL_MS)return;
+  _lastReadbackMs=now;
   if (SHARED.glowPixelsW !== cw || SHARED.glowPixelsH !== ch) {
     SHARED.glowPixelsW = cw;
     SHARED.glowPixelsH = ch;
     SHARED.glowPixels = new Uint8Array(cw * ch * 4);
   }
-  gl.readPixels(0, 0, cw, ch, gl.RGBA, gl.UNSIGNED_BYTE, SHARED.glowPixels);
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER,readback.buffer);
+  if(readback.size!==cw*ch*4){readback.size=cw*ch*4;gl.bufferData(gl.PIXEL_PACK_BUFFER,readback.size,gl.STREAM_READ);}
+  gl.readPixels(0,0,cw,ch,gl.RGBA,gl.UNSIGNED_BYTE,0);
+  readback.fence=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);gl.flush();
 }
 
 /**
