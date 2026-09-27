@@ -2,6 +2,8 @@ import {mountSettings} from '../src/settings.js';
 import {activate} from '../src/index.js';
 import {DEFAULTS,KEY} from '../src/config.js';
 import {runtimeState} from '../src/vendor/material-runtime.js';
+import {svgWordmark} from './svg-fixture.js';
+import {checkModernControls} from './modern-checks.js';
 
 const $=selector=>document.querySelector(selector);
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -11,7 +13,8 @@ const arrow='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-w
 const stop='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg>';
 const chevron='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m5 6 3 3 3-3"/></svg>';
 const mic='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3"/></svg>';
-let cleanup=null,library=null,settingsMount=null,settingsCleanup=null,taskRunning=false,nativeClicks=0,accountClicks=0,modelClicks=0,voiceClicks=0,modeClicks=0;
+const voiceWave='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 10V14M8 6V18M12 4V20M16 7V17M20 10V14"/></svg>';
+let cleanup=null,library=null,settingsMount=null,settingsCleanup=null,taskRunning=false,nativeClicks=0,accountClicks=0,modelClicks=0,voiceClicks=0,modeClicks=0,primaryVoiceClicks=0,modernFixture=true;
 const report=value=>{$('#report').textContent=typeof value==='string'?value:JSON.stringify(value,null,2);};
 const scopeTargets=()=>[...document.querySelectorAll('.outline-tick,.usage-summary')];
 const nativeDecoration=el=>{const css=getComputedStyle(el);return [css.boxShadow,css.outlineStyle,css.outlineWidth,css.outlineColor,css.borderRadius].join('|');};
@@ -21,10 +24,23 @@ function composer(home=false){
   taskRunning=false;paintState();
   $('#composer-slot').innerHTML=`<div data-codex-composer-root><div class="composer" data-composer-surface-variant="conversation"><textarea class="message" aria-label="消息" placeholder="从一个想法开始…" spellcheck="false"></textarea><div class="bottom"><button class="plus" aria-label="添加附件">＋</button><div class="spacer"></div><button class="chip agent" aria-label="Agent 模式">Agent ${chevron}</button><button class="chip model" data-codex-intelligence-trigger="true" data-composer-navigation-target="reasoning" aria-label="选择模型" aria-haspopup="menu" aria-expanded="false"><span class="_ModelPickerTriggerMeasurement_fixture" aria-hidden="true">隐藏的宽度测量文字不应发光</span><span class="_ModelPickerTriggerLabel_fixture"><span class="model-name">GPT-6 Astra</span><span class="model-effort">最高</span></span>${chevron}</button><button class="voice" aria-label="Voice input">${mic}</button><button class="send" aria-label="Send message" disabled>${arrow}</button></div></div></div>`;
   if(home){const surface=$('.composer');surface.removeAttribute('data-composer-surface-variant');const shell=document.createElement('div');shell.className='home-shell';shell.setAttribute('data-composer-surface-variant','home');surface.before(shell);shell.append(surface);}
-  $('.message').addEventListener('input',()=>{$('.send').disabled=!taskRunning&&!$('.message').value.trim();});
+  function syncPrimary(){
+    const el=$('.send'),voice=modernFixture&&!taskRunning&&!$('.message').value.trim();
+    el.disabled=!modernFixture&&!taskRunning&&!$('.message').value.trim();
+    const action=taskRunning?'stop':voice?'voice':'send';
+    el.setAttribute('aria-label',taskRunning?'Stop generating':voice?(home?'开始新的语音聊天':'开启语音聊天'):'Send message');
+    if(el.dataset.fixtureAction!==action){el.querySelector('svg').outerHTML=taskRunning?stop:voice?voiceWave:arrow;el.dataset.fixtureAction=action;}
+  }
+  syncPrimary();
+  $('.message').addEventListener('input',syncPrimary);
   $('.model').addEventListener('click',()=>{modelClicks++;const el=$('.model');const open=el.getAttribute('aria-expanded')!=='true';el.setAttribute('aria-expanded',String(open));el.dataset.state=open?'active':'closed';el.querySelector('.model-name').textContent=open?'选择模型':'GPT-6 Astra';el.querySelector('.model-effort').hidden=open;});
   $('.voice').addEventListener('click',()=>{voiceClicks++;$('.voice').setAttribute('aria-pressed',String(voiceClicks%2===1));});
-  $('.send').addEventListener('click',()=>{nativeClicks++;taskRunning=!taskRunning;const el=$('.send');el.setAttribute('aria-label',taskRunning?'Stop generating':'Send message');el.querySelector('svg').outerHTML=taskRunning?stop:arrow;$('[data-codex-composer-root]').setAttribute('aria-busy',String(taskRunning));paintState();el.disabled=!taskRunning&&!$('.message').value.trim();});
+  $('.send').addEventListener('click',()=>{if(modernFixture&&!taskRunning&&!$('.message').value.trim()){primaryVoiceClicks++;return;}nativeClicks++;taskRunning=!taskRunning;$('[data-codex-composer-root]').setAttribute('aria-busy',String(taskRunning));paintState();syncPrimary();});
+}
+function modeLabel(mode){
+  const next=document.createElement('span');next.className=modernFixture?'mode-label svg-mode-label':'truncate font-openai-sans mode-label';
+  if(modernFixture)next.innerHTML=svgWordmark(mode);else next.textContent=mode;
+  $('.mode-label').replaceWith(next);$('.mode-trigger').setAttribute('aria-label',`Switch mode, current mode: ${mode}`);$('.mode-trigger').setAttribute('aria-expanded','false');$('.mode-menu').hidden=true;
 }
 function enable(){
   if(cleanup)return;
@@ -37,6 +53,7 @@ function enable(){
 function disable(){cleanup?.();$('#enable').textContent='启用效果';$('#enable').setAttribute('aria-pressed','false');}
 localStorage.setItem(KEY,JSON.stringify(DEFAULTS));
 composer();
+modeLabel('Codex');
 for(const row of document.querySelectorAll('.sidebar-row')){
   row.setAttribute('data-app-action-sidebar-thread-row','');row.setAttribute('data-app-action-sidebar-thread-active',String(row.hasAttribute('aria-current')));row.removeAttribute('aria-current');
   row.addEventListener('pointerenter',()=>row.classList.add('native-hover'));
@@ -46,8 +63,7 @@ for(const row of document.querySelectorAll('.sidebar-row')){
 $('.profile-trigger').addEventListener('click',()=>{accountClicks++;$('.profile-trigger').setAttribute('aria-expanded',String(accountClicks%2===1));});
 $('.mode-trigger').addEventListener('click',()=>{modeClicks++;const open=$('.mode-menu').hidden;$('.mode-menu').hidden=!open;$('.mode-trigger').setAttribute('aria-expanded',String(open));});
 for(const option of document.querySelectorAll('[data-mode-option]'))option.addEventListener('click',()=>{
-  const next=document.createElement('span');next.className='truncate font-openai-sans mode-label';next.textContent=option.dataset.modeOption;
-  $('.mode-label').replaceWith(next);$('.mode-trigger').setAttribute('aria-label',`Switch mode, current mode: ${option.dataset.modeOption}`);$('.mode-trigger').setAttribute('aria-expanded','false');$('.mode-menu').hidden=true;
+  modeLabel(option.dataset.modeOption);
 });
 enable();
 $('#theme').onclick=()=>{const light=document.documentElement.dataset.theme!=='light';document.documentElement.dataset.theme=light?'light':'dark';$('#theme').textContent=light?'切换深色':'切换浅色';};
@@ -61,7 +77,7 @@ $('#tests').onclick=async()=>{
   $('#tests').disabled=true;const results=[];
   const check=(label,condition,detail)=>{results.push({test:label,pass:!!condition,...(detail?{detail}: {})});report(results);};
   try{
-    composer();enable();library.setConfig({...DEFAULTS});document.documentElement.dataset.theme='dark';$('.fixture').scrollIntoView({block:'center',behavior:'instant'});await wait(650);
+    modernFixture=false;modeLabel('Codex');composer();enable();library.setConfig({...DEFAULTS});document.documentElement.dataset.theme='dark';$('.fixture').scrollIntoView({block:'center',behavior:'instant'});await wait(650);
     let status=library.getStatus();check('Send material and passive voice reflection mounted',status.metals===2&&status.reflections===1&&status.beams===1&&!!$('.voice [data-ctmb-metal-fx-reflection]')&&!$('.voice').hasAttribute('data-codex-tweaks-mb-metal'),status);
     check('Conversation outline and usage widget receive no decoration markers',scopeTargets().every(el=>!el.hasAttribute('data-codex-tweaks-mb-surface')&&!el.hasAttribute('data-codex-tweaks-mb-metal')&&!el.querySelector('[data-codex-tweaks-mb-owned]')));
     for(const [el,before] of nativeScope){el.focus({preventScroll:true});check(`Native focus styling is preserved: ${el.getAttribute('aria-label')}`,nativeDecoration(el)===before,{before,after:nativeDecoration(el)});el.blur();}
@@ -220,6 +236,8 @@ $('#tests').onclick=async()=>{
     }finally{if(focusDescriptor)Object.defineProperty(document,'hasFocus',focusDescriptor);else delete document.hasFocus;window.dispatchEvent(new FocusEvent('focus'));}
     await wait(250);const focusedFrame=runtimeState().frames;await wait(250);
     check('Refocusing resumes the existing material',!library.getStatus().paused&&runtimeState().frames>focusedFrame);
+    modernFixture=true;modeLabel('Codex');composer();
+    await checkModernControls({check,wait,library:()=>library,composer,modeLabel,enable,disable,voiceClicks:()=>primaryVoiceClicks,runtimeState});
     report({passed:results.filter(r=>r.pass).length,total:results.length,results});
-  }catch(error){results.push({error:String(error.stack||error)});report(results);}finally{$('#tests').disabled=false;}
+  }catch(error){results.push({error:String(error.stack||error)});report(results);}finally{modernFixture=true;modeLabel('Codex');composer();enable();library.setConfig({...DEFAULTS});$('#tests').disabled=false;}
 };

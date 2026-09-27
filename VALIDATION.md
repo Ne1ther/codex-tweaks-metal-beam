@@ -1,3 +1,35 @@
+# 0.3.11 validation · 2026-09-27
+
+The target flow is the sidebar product heading and empty composer: native SVG logo → glyph-only color; primary voice → typed Send → running Stop → cleared input → primary voice again. No host app or private module is modified. The original Tweaks renderer API v3 is unchanged, with no Node permission or settings registration.
+
+## Checks and visible behavior
+
+- 39 Node checks and 99 browser checks passed. New cases cover SVG sanitization, unsupported-mask/reference fallback, exact fractional bounds, lifecycle and observer disposal, late-mounted headings, native path replacement, Codex/ChatGPT switching, unchanged arrow/menu/accessibility text, primary-voice versus dictation matching, empty/Send/Stop transitions, disabled/active voice, blur/focus, pause/resume, themes and repeated cleanup.
+- The fixture was exercised through supported CUA and tab-scoped CDP at `http://127.0.0.1:48738/candidate`. Native typing, Send, Stop and clearing were also exercised through browser UI actions. The page was nonblank with the expected title and controls; no relevant console errors/warnings were observed after the final reload and interactions.
+- Dark desktop and light 390 × 844 layouts were inspected. At DPR 2 the narrow composer had zero horizontal/vertical overflow, one primary-voice light, and aligned SVG/mask bounds. Temporary copies of the installed application's three actual wordmark geometries (Codex, ChatGPT, ChatGPT Work) also matched their native bounds in the fixture. These application assets are not redistributed; the committed preview uses original path-letter fixtures.
+- Native SVGs, their accessible labels and arrows remain intact. The effect adds an accessibility-hidden, pointer-transparent glyph mask with fixed gradients. It does not animate SVG paths, blur, background positions or geometry. Invalid masks retain the native logo.
+- Primary voice has one fixed, button-sized silver-blue field. Only its opacity changes; hover adds a short opacity transition. Label matching distinguishes realtime voice from the adjacent dictation microphone without reading the draft. Typing removes the voice light before adding Send metal; clearing removes Send metal before restoring voice light.
+
+## Isolated animation cost
+
+After initialization, a four-second desktop sample isolated the new SVG wordmark and primary-voice glow, removing other material surfaces and disabling Beam/model decoration in the owned fixture. Temporary counters were then restored and removed.
+
+| Four-second sample | Observed |
+| --- | ---: |
+| JavaScript animation-frame requests | 0 |
+| DOM geometry reads | 0 |
+| WebGL draw calls | 0 |
+| Canvas2D drawImage calls | 0 |
+| Layout count / duration | 0 / 0 ms |
+| Script duration | 0.003 ms |
+| Main-thread task duration | 34.123 ms |
+
+Both sampled opacities changed during the interval, so the zero drawing/callback counts do not come from paused animation. Browser style and composition still consume work; these metrics do not establish zero GPU use, a whole-app percentage, or a below-5% utilization guarantee. The earlier Metal renderer and its cache budget are unchanged.
+
+Live Codex page internals were not instrumented. Fixture behavior and source compatibility are separate from activation in the original Tweaks host and from the user's final visual assessment.
+
+---
+
 # 0.3.10 validation · 2026-09-27
 
 Compared the frozen 0.3.9 preview from commit b490ddc with the 0.3.10 implementation through supported CUA and tab-scoped CDP. The original Tweaks installation was disabled for the final measurements, then restored with the new version. Benchmark values below come from the local preview, not instrumentation inside the native Codex conversation.

@@ -1,10 +1,11 @@
 import {OWN,METAL,SURFACE_MARK} from './style.js';
-import {stopLabel,sendLabel} from './config.js';
+import {stopLabel,sendLabel,startVoiceLabel} from './config.js';
 export const COMPOSER='[data-codex-composer-root]';
 export const SURFACE='[data-composer-surface-variant]';
 export const SIDEBAR='.app-shell-left-panel,[data-testid="app-shell-floating-left-panel"],[data-pip-obstacle="app-shell-floating-left-panel"]';
 export const THREAD_ROW='[data-app-action-sidebar-thread-row]';
 export const MODEL_TRIGGER='[data-codex-intelligence-trigger]';
+const MODE_SWITCH=/(?:switch mode|切换模式|选择模式|切換模式|選擇模式)/i;
 const CONTROL=`button,a[href],[role="button"],[role="tab"],[role="switch"],[role="menuitem"],[role="treeitem"],[role="combobox"],[tabindex="0"],${THREAD_ROW}`;
 const PANEL='[role="menu"],[role="dialog"],[role="listbox"]';
 const ZONE=`${COMPOSER},header,nav,[role="toolbar"],${PANEL},${SIDEBAR}`;
@@ -61,19 +62,35 @@ export function isSidebarRow(el){
 }
 function wordmarkLabels(){
   const found=[];
+  const modeName=value=>/^(?:Codex|ChatGPT(?: Work)?|Work)$/.test(value?.trim()??'');
+  const modeTrigger=el=>MODE_SWITCH.test(name(el));
+  const excluded=`${EXCLUDED},${THREAD_ROW},.sidebar-item,[class~="[container-type:inline-size]"],[role="menu"],[role="menuitem"],[role="menuitemradio"]`;
   for(const side of document.querySelectorAll(SIDEBAR)){
     const top=side.getBoundingClientRect().top,candidates=[],labels=new Set(side.querySelectorAll('span.font-openai-sans'));
-    for(const trigger of side.querySelectorAll('button[aria-label],[role="button"][aria-label]'))if(/(?:switch mode|切换模式|选择模式)/i.test(name(trigger)))for(const label of trigger.querySelectorAll('span'))labels.add(label);
+    const triggers=[...side.querySelectorAll('button[aria-label],[role="button"][aria-label]')].filter(modeTrigger);
+    for(const trigger of triggers)for(const label of trigger.querySelectorAll('span'))labels.add(label);
+    // New desktop headings are native SVG paths with an adjacent screen-reader
+    // label. Read only these known product labels, never task or account names.
+    for(const label of side.querySelectorAll('span.sr-only')){
+      if(!modeName(label.textContent)||label.closest(excluded))continue;
+      const holder=label.parentElement,trigger=holder.closest('button,[role="button"]');
+      for(const svg of holder.querySelectorAll(':scope > svg[viewBox]')){
+        const box=svg.getBoundingClientRect();
+        if(svg.closest(excluded)||box.height<8||box.width<box.height*1.7||box.width>280)continue;
+        if(!svg.checkVisibility?.({checkOpacity:!svg.hasAttribute('data-codex-tweaks-mb-wordmark'),checkVisibilityCSS:true}))continue;
+        if((trigger&&modeTrigger(trigger))||(box.top>=top&&box.top<top+160))candidates.push(svg);
+      }
+    }
     for(const label of labels){
-      if(label.closest(`${EXCLUDED},${THREAD_ROW},.sidebar-item,[class~="[container-type:inline-size]"],[role="menu"],[role="menuitem"],[role="menuitemradio"]`)||label.querySelector('span,svg,img,button'))continue;
+      if(label.closest(`${excluded},.sr-only,[hidden],[aria-hidden="true"]`)||label.querySelector('span,svg,img,button'))continue;
       if(!label.checkVisibility?.({checkOpacity:true,checkVisibilityCSS:true}))continue;
       const trigger=label.closest('button,[role="button"]');
-      const explicit=trigger&&/(?:switch mode|切换模式|选择模式)/i.test(name(trigger));
+      const explicit=trigger&&modeTrigger(trigger);
       const b=label.getBoundingClientRect();
       const headerLabel=label.classList.contains('font-openai-sans')&&b.top>=top&&b.top<top+160;
       if(!explicit&&!headerLabel)continue;
       // Validate only the public mode-heading label, never task/account text.
-      if(!/^(?:Codex|ChatGPT(?: Work)?)$/.test(label.textContent?.trim()??''))continue;
+      if(!modeName(label.textContent))continue;
       if(explicit||headerLabel)candidates.push(label);
     }
     // A panel has one persistent mode label. Portal menu options are excluded.
@@ -82,15 +99,19 @@ function wordmarkLabels(){
   return [...new Set(found)];
 }
 export function discover(broad=true,modelHaze=true,wordmarkHaze=true) {
-  const composers=[],buttons=[],selected=[],sidebarRows=[],models=[];
+  const composers=[],buttons=[],voices=[],selected=[],sidebarRows=[],models=[];
   const labels=wordmarkLabels(),modeControls=new Set(labels.map(el=>el.closest('button,[role="button"]')).filter(Boolean));
   for(const root of document.querySelectorAll(COMPOSER)){
     if(root.closest(EXCLUDED))continue;
     composers.push(...roundedSurface(root));
+    const localButtons=[],localVoices=[];
     for(const el of root.querySelectorAll(CONTROL))if(eligible(el)){
       if(sendLabel(name(el))||stopLabel(name(el)))buttons.push(el);
+      if((sendLabel(name(el))||stopLabel(name(el)))&&el.getClientRects().length&&el.checkVisibility?.({checkOpacity:true,checkVisibilityCSS:true}))localButtons.push(el);
+      if(startVoiceLabel(name(el))&&!el.matches(':disabled,[aria-disabled="true"],[aria-pressed="true"]')&&!el.closest(PANEL)&&geometry(el))localVoices.push(el);
       if(modelHaze&&isModelTrigger(el))models.push(el);
     }
+    if(!localButtons.length)voices.push(...localVoices.slice(0,1));
   }
   if(broad){
     // Only decorate sidebar navigation rows. Generic nav/toolbar controls also
@@ -99,7 +120,7 @@ export function discover(broad=true,modelHaze=true,wordmarkHaze=true) {
       if(!eligible(el)||!isSidebarRow(el)||voiceLabel(name(el))||isModelTrigger(el)||modeControls.has(el))continue;sidebarRows.push(el);if(selectedRow(el))selected.push(el);
     }
   }
-  return {composers:[...new Set(composers)],buttons:[...new Set(buttons)],selected:[...new Set(selected)].filter(el=>!selected.some(other=>other!==el&&other.contains(el))),sidebarRows:[...new Set(sidebarRows)],models:[...new Set(models)].slice(0,2),wordmarks:wordmarkHaze?labels:[]};
+  return {composers:[...new Set(composers)],buttons:[...new Set(buttons)],voices:[...new Set(voices)].slice(0,2),selected:[...new Set(selected)].filter(el=>!selected.some(other=>other!==el&&other.contains(el))),sidebarRows:[...new Set(sidebarRows)],models:[...new Set(models)].slice(0,2),wordmarks:wordmarkHaze?labels:[]};
 }
 export function running(el){
   const root=el.closest(COMPOSER);
@@ -134,7 +155,10 @@ export function relevantMutation(records){
       if(el.matches(`${COMPOSER},${SURFACE},${CONTROL},${PANEL},${SIDEBAR},[data-codex-tweaks-mb-wordmark]`))return true;
       return ['class','hidden','aria-hidden'].includes(key)&&!!el.querySelector(`${COMPOSER},${SIDEBAR},[${METAL}],[${SURFACE_MARK}],[data-codex-tweaks-mb-model]`);
     }
-    return [...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&!isOwned(node)&&(node.matches(`${COMPOSER},${SURFACE},${CONTROL},${PANEL}`)||node.querySelector(`${COMPOSER},${SURFACE},${CONTROL},${PANEL}`)));
+    const changed=[...record.addedNodes,...record.removedNodes].filter(node=>node.nodeType===1&&!isOwned(node));
+    const mode=record.target.closest?.('button[aria-label],[role="button"][aria-label]');
+    if(changed.length&&mode?.closest(SIDEBAR)&&MODE_SWITCH.test(name(mode)))return true;
+    return changed.some(node=>node.matches(`${COMPOSER},${SURFACE},${CONTROL},${PANEL}`)||node.querySelector(`${COMPOSER},${SURFACE},${CONTROL},${PANEL}`));
   });
 }
 export function selectionMutation(records){

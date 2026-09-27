@@ -1,7 +1,7 @@
 {
   "name": "ct-metal-beam",
-  "version": "0.3.10",
-  "description": "发送键金属常亮、语音键反光、文字柔雾炫彩与输入框流光。",
+  "version": "0.3.11",
+  "description": "发送键金属光影、主语音键柔光、字形流彩与输入框边缘流光。",
   "type": "module",
   "license": "MIT",
   "repository": {

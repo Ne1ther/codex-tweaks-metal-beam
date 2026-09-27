@@ -13,3 +13,5 @@ export function readConfig(){try{return normalize(JSON.parse(localStorage.getIte
 export function writeConfig(config){try{localStorage.setItem(KEY,JSON.stringify(normalize(config)));return true;}catch{return false;}}
 export function stopLabel(name=''){return /^(stop(?: generating| generation| response| responding| running| task| turn)?|cancel generation|停止(?:生成|响应|回答|运行|任务)?|中止(?:生成|运行)?)$/i.test(name.trim());}
 export function sendLabel(name=''){return /^(send(?: message| prompt)?|submit|发送(?:消息)?|提交)$/i.test(name.trim());}
+// Realtime voice replaces the primary Send control; dictation is a separate mic.
+export function startVoiceLabel(name=''){return /^(?:start(?: new)? voice chat|(?:开始|开启)(?:新的?)?语音(?:聊天|对话)|(?:開始|開啟)(?:新的?)?語音(?:聊天|對話))$/i.test(name.trim());}

@@ -11,12 +11,13 @@ This is an independent, third-party **API v3** package with the stable ID `ct-me
 | Surface | Effect |
 | --- | --- |
 | Send / Stop button | Liquid-metal light, including while idle; the native disabled state still applies |
+| Primary voice button when the input is empty | A pale silver-blue breathing glow with a subtle hover highlight; changes back to Send metal when typing |
 | Adjacent voice button | Passive reflected light, without its own metal animation |
 | Composer | Border Beam around the edge, stronger while running |
 | Selected sidebar item | Metal light with canvas reuse when selection changes |
 | Other sidebar navigation rows | Subtle hover highlights |
 | Model and effort label | Silver, pale blue and violet blending inside the native text glyphs; no button background or chevron effect |
-| Codex / ChatGPT heading | Color within the text glyphs only |
+| Codex / ChatGPT heading | Color within the native glyphs, including the new SVG wordmarks; no arrow or menu decoration |
 
 Decorations do not handle clicks or replace native actions. Motion pauses when the window loses focus, the page is hidden, or Reduce Motion is enabled. This package does not implement native window transparency, Ghostty-style background blur, or HDR output.
 
@@ -28,11 +29,11 @@ You need the Codex desktop app and a working Codex Tweaks API v3 host. This is a
 
 1. In Codex Tweaks, open **Packages → Install from Git**.
 2. Use `https://github.com/Ne1ther/codex-tweaks-metal-beam.git`.
-3. Select the released `v0.3.10` tag, or the latest semantic-version tag selector for updates.
+3. Select the released `v0.3.11` tag, or the latest semantic-version tag selector for updates.
 4. After installation and compilation, enable **ct-metal-beam**.
 5. Focus the Codex window to see the idle animation.
 
-Alternatively, download **ct-metal-beam-0.3.10.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
+Alternatively, download **ct-metal-beam-0.3.11.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
 
 For an existing installation, use the host's update flow for the same package ID. Avoid enabling duplicate copies of the effect.
 
@@ -43,6 +44,8 @@ The main switch is on the **Codex Tweaks packages page**. This version does not 
 Open `preview/standalone.html` for an offline demonstration. Its settings panel affects only the preview. Disabling the package removes its decorations and releases its observers, listeners, animation work, and graphics contexts.
 
 ## Performance and compatibility
+
+The SVG wordmark and primary voice glow added in 0.3.11 animate only small fixed layers' opacity. They add no WebGL, per-frame JavaScript or animated blur. Native shape/size changes rebuild the wordmark mask; unsupported SVGs stay native. Voice-state matching uses control labels without reading drafts.
 
 Version 0.3.10 bakes the original Metal shader into native-resolution frame atlases and plays them through transform animations with 1/60-second samples. Cached rings need no per-frame JavaScript or shader draw. Reflections retain their low-rate source; model labels and Beam keep their fixed-texture opacity animations. Hover never moves native buttons.
 

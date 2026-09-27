@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import vm from 'node:vm';
-import {normalize,DEFAULTS,sendLabel,stopLabel} from '../src/config.js';
+import {normalize,DEFAULTS,sendLabel,stopLabel,startVoiceLabel} from '../src/config.js';
 const base=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 test('Standalone preview preserves embedded shader/template literals',()=>{
   const html=fs.readFileSync(path.join(base,'preview/standalone.html'),'utf8');
@@ -25,9 +25,13 @@ test('Send / stop matching accepts control metadata without matching ordinary la
   for(const label of ['Stop generating','Stop','停止生成','停止运行'])assert.ok(stopLabel(label));
   for(const label of ['Send feedback','Stopwatch','重新发送邮件','取消','Response stopped'])assert.equal(sendLabel(label)||stopLabel(label),false);
 });
+test('Primary realtime voice labels exclude dictation, Stop and descriptive text',()=>{
+  for(const label of ['Start voice chat','Start new voice chat','开启语音聊天','开始新的语音聊天','開始語音對話','開始新的語音對話'])assert.ok(startVoiceLabel(label),label);
+  for(const label of ['Voice input','Dictation','Microphone','语音输入','听写','Stop voice chat','停止语音聊天','开启语音聊天设置','Start voice chat from anywhere'])assert.equal(startVoiceLabel(label),false,label);
+});
 test('Distribution is renderer-only API v3, local bundled dependencies, without symlinks',()=>{
   const manifest=JSON.parse(fs.readFileSync(path.join(base,'package.json')));
-  assert.equal(manifest.name,'ct-metal-beam');assert.equal(manifest.version,'0.3.10');
+  assert.equal(manifest.name,'ct-metal-beam');assert.equal(manifest.version,'0.3.11');
   assert.equal(manifest.codexTweaks.apiVersion,3);assert.deepEqual(manifest.dependencies,{});
   assert.equal(manifest.codexTweaks.entrypoints.node,undefined);assert.equal(manifest.codexTweaks.permissions,undefined);assert.equal(manifest.codexTweaks.ui,undefined);
   function walk(dir){for(const item of fs.readdirSync(dir)){if(item==='node_modules')continue;const file=path.join(dir,item);const stat=fs.lstatSync(file);assert.equal(stat.isSymbolicLink(),false,file);if(stat.isDirectory())walk(file);else assert.ok(stat.isFile(),file);}}
