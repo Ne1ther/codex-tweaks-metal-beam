@@ -226,6 +226,11 @@ $('#tests').onclick=async()=>{
     const transcript=document.createElement('div');transcript.style.cssText='height:20px;overflow:auto';transcript.innerHTML='<p style="height:500px">test conversation</p>';document.body.append(transcript);await wait(150);const scrollScans=library.getStatus().scans;
     for(let i=0;i<20;i++){transcript.scrollTop=i*10;transcript.dispatchEvent(new Event('scroll'));await wait(10);}await wait(150);
     check('Conversation autoscroll does not rediscover stationary effects',library.getStatus().scans===scrollScans,{before:scrollScans,after:library.getStatus().scans});transcript.remove();
+    await wait(160);
+    const sidebar=$('.app-shell-left-panel'),sidebarScans=library.getStatus().scans;
+    for(let i=0;i<20;i++){sidebar.dispatchEvent(new Event('scroll'));await wait(10);}
+    await wait(220);
+    check('Sidebar scrolling coalesces target scans while preserving layout updates',library.getStatus().scans-sidebarScans<=2,{before:sidebarScans,after:library.getStatus().scans});
     const focusDescriptor=Object.getOwnPropertyDescriptor(document,'hasFocus');
     try{
       Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>false});window.dispatchEvent(new FocusEvent('blur'));await wait(260);

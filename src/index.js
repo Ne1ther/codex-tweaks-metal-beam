@@ -8,7 +8,7 @@ import {startRuntime,disposeRuntime,mountMetal,mountBeam,setMotionPaused,setActi
 export function activate({root,onCleanup,api}) {
   const route=new URLSearchParams(location.search).get('initialRoute');
   if(route==='/avatar-overlay'||location.pathname.endsWith('/avatar-overlay-composition-surface.html'))return;
-  let config=readConfig(),live=true,timer=0,layoutRaf=0,selectionRaf=0,lastError='';
+  let config=readConfig(),live=true,timer=0,scrollTimer=0,layoutRaf=0,selectionRaf=0,lastError='';
   let visibleTheme=theme(),paused=false,scans=0,retargets=0;
   const metals=new Map(),beams=new Map(),marks=new Map(),models=new Map(),wordmarks=new Map(),failed=new WeakSet();
   const positions=new WeakMap();
@@ -38,8 +38,16 @@ export function activate({root,onCleanup,api}) {
   function scroll(event){
     const target=event.target;
     // Conversation autoscroll does not move the sidebar or fixed composer.
-    if(target!==document&&!target.contains?.(overlay)&&!target.closest?.(SIDEBAR)&&![...metals.keys(),...beams.keys(),...models.keys()].some(el=>target.contains?.(el))&&!target.querySelector?.(`${COMPOSER},${SIDEBAR}`))return;
-    scheduleLayout();if(timer)clearTimeout(timer);timer=0;schedule();
+    let relevant=target===document||target===window||target===document.body||
+      target.contains?.(overlay)||target.closest?.(`${SIDEBAR},${COMPOSER}`);
+    if(!relevant)for(const el of metals.keys())if(target.contains?.(el)){relevant=true;break;}
+    if(!relevant)for(const el of beams.keys())if(target.contains?.(el)){relevant=true;break;}
+    if(!relevant)return;
+    // Reposition visible effects at display refresh rate. A full discovery
+    // pass is needed only after the scrolling content settles.
+    scheduleLayout();
+    if(scrollTimer)clearTimeout(scrollTimer);
+    scrollTimer=window.setTimeout(()=>{scrollTimer=0;scan();},160);
   }
   function prepare(el,kind,box){
     const restore=[];
@@ -234,11 +242,11 @@ export function activate({root,onCleanup,api}) {
   listen(reduced,'change',scan);listen(contrast,'change',scan);listen(systemTheme,'change',scan);
   document.fonts?.ready.then(()=>{if(live)scheduleLayout();});
   listen(window,'storage',event=>{if(event.key===KEY){config=readConfig();scan();}});
-  const diagnose=()=>({...runtimeState(),version:'0.3.13',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
+  const diagnose=()=>({...runtimeState(),version:'0.3.14',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
   const update=patch=>{config=normalize({...config,...patch});const saved=writeConfig(config);scan();return saved;};
   api?.registerLibrary('metal-beam',{getStatus:diagnose,getConfig:()=>({...config}),setConfig:update});
   function cleanup(){
-    if(!live)return;live=false;if(timer)clearTimeout(timer);if(layoutRaf)cancelAnimationFrame(layoutRaf);if(selectionRaf)cancelAnimationFrame(selectionRaf);timer=layoutRaf=selectionRaf=0;
+    if(!live)return;live=false;if(timer)clearTimeout(timer);if(scrollTimer)clearTimeout(scrollTimer);if(layoutRaf)cancelAnimationFrame(layoutRaf);if(selectionRaf)cancelAnimationFrame(selectionRaf);timer=scrollTimer=layoutRaf=selectionRaf=0;
     observer.disconnect();resize.disconnect();decorationVisibility.disconnect();for(const dispose of events)dispose();
     for(const el of [...metals.keys()])remove(metals,el);for(const el of [...beams.keys()])remove(beams,el);
     for(const item of marks.values())item.restore();marks.clear();

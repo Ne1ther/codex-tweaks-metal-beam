@@ -30,13 +30,13 @@
 
 1. 打开原版 Codex Tweaks → **功能包** → **从 Git 安装**。
 2. 填入仓库地址：`https://github.com/Ne1ther/codex-tweaks-metal-beam.git`。
-3. 选择发布标签 `v0.3.13`，或选择最新语义化版本标签以接收后续版本。
+3. 选择发布标签 `v0.3.14`，或选择最新语义化版本标签以接收后续版本。
 4. 安装和编译完成后，打开 **ct-metal-beam** 的开关。
 5. 回到 Codex，让窗口获得焦点，即可看到空闲状态下的光效。
 
 ### 从 ZIP 安装
 
-在 [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) 下载 **ct-metal-beam-0.3.13.zip**，然后在 Tweaks 功能包页面选择“安装本地包”。这个 ZIP 根目录直接包含 `package.json`，不包含宿主应用、依赖目录或符号链接。
+在 [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) 下载 **ct-metal-beam-0.3.14.zip**，然后在 Tweaks 功能包页面选择“安装本地包”。这个 ZIP 根目录直接包含 `package.json`，不包含宿主应用、依赖目录或符号链接。
 
 已有本地版本时，先确认它的包名同样是 `ct-metal-beam`，使用宿主提供的更新流程。避免同时启用多份相同效果的副本。
 
@@ -49,6 +49,8 @@
 要停止效果，关闭 Tweaks 中的 `ct-metal-beam` 开关。停用时释放插件自己的画布、观察器、监听器、动画、样式与装饰节点，恢复修改前的控件属性。
 
 ## 性能与兼容
+
+0.3.14 减少滚动期间的整页控件扫描：可见光效仍逐帧跟随位置，停滚后只做一次目标发现；无关的聊天区自动滚动不再搜索整棵子树。用量环也被排除在金属控件发现范围外。
 
 0.3.13 修复 Codex 在语音和发送状态间替换原生按钮造成的光效间断。新按钮会接过原有画布与帧缓存；已缓存且尺寸不变时不会再次生成金属帧。
 
@@ -88,7 +90,7 @@ npm test
 npm run package
 ```
 
-最后一步需要 `zip` 命令，生成 `dist/ct-metal-beam-0.3.13.zip` 和校验文件。目录结构、预览、发布以及安装版和源码版的关系见 [开发说明](docs/DEVELOPMENT.md)。
+最后一步需要 `zip` 命令，生成 `dist/ct-metal-beam-0.3.14.zip` 和校验文件。目录结构、预览、发布以及安装版和源码版的关系见 [开发说明](docs/DEVELOPMENT.md)。
 
 ## 致谢与许可
 

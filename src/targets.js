@@ -11,7 +11,7 @@ const PANEL='[role="menu"],[role="dialog"],[role="listbox"]';
 const ZONE=`${COMPOSER},header,nav,[role="toolbar"],${PANEL},${SIDEBAR}`;
 const EDITOR='textarea,[contenteditable="true"],[role="textbox"]';
 const SELECTED='[aria-current="page"],[aria-current="true"],[aria-selected="true"],[data-state="active"],[data-selected="true"],[data-app-action-sidebar-thread-active="true"],[data-app-action-sidebar-thread-selected="true"]';
-const EXCLUDED=`[${OWN}],.ctmb-settings,pre,code,${EDITOR},.monaco-editor,.xterm,[data-codex-tweaks-mb-ignore],[data-codex-tweaks-usage-overview],[data-codex-tweaks-usage-overview-tooltip]`;
+const EXCLUDED=`[${OWN}],.ctmb-settings,pre,code,${EDITOR},.monaco-editor,.xterm,[data-codex-tweaks-mb-ignore],[data-codex-tweaks-usage-overview],[data-codex-tweaks-usage-overview-tooltip],[data-codex-tweaks-usage-ring],[data-codex-tweaks-usage-ring-tooltip]`;
 const name=el=>el.getAttribute('aria-label')||el.getAttribute('title')||'';
 export const isOwned=node=>!!node?.closest?.(`[${OWN}],[data-ctmb-metal-fx-reflection],.ctmb-settings`);
 export const voiceLabel=(value='')=>/^(?:(?:start(?: new)?|stop|use|toggle) )?(?:voice(?: mode| input| chat)?|dictation|dictate|microphone|语音(?:输入|聊天)?|(?:开始|停止|使用|切换)?(?:语音|听写|录音))$/i.test(value.trim());

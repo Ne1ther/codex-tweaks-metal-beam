@@ -28,11 +28,11 @@ You need the Codex desktop app and a working Codex Tweaks API v3 host. This is a
 
 1. In Codex Tweaks, open **Packages → Install from Git**.
 2. Use `https://github.com/Ne1ther/codex-tweaks-metal-beam.git`.
-3. Select the released `v0.3.13` tag, or the latest semantic-version tag selector for updates.
+3. Select the released `v0.3.14` tag, or the latest semantic-version tag selector for updates.
 4. After installation and compilation, enable **ct-metal-beam**.
 5. Focus the Codex window to see the idle animation.
 
-Alternatively, download **ct-metal-beam-0.3.13.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
+Alternatively, download **ct-metal-beam-0.3.14.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
 
 For an existing installation, use the host's update flow for the same package ID. Avoid enabling duplicate copies of the effect.
 
@@ -43,6 +43,8 @@ The main switch is on the **Codex Tweaks packages page**. This version does not 
 Open `preview/standalone.html` for an offline demonstration. Its settings panel affects only the preview. Disabling the package removes its decorations and releases its observers, listeners, animation work, and graphics contexts.
 
 ## Performance and compatibility
+
+Version 0.3.14 avoids full control discovery on every sidebar scroll event. Visible effects still reposition at display refresh rate, then targets are rediscovered once scrolling settles. Unrelated conversation autoscroll no longer searches its subtree. The new usage ring is excluded from Metal decoration.
 
 Version 0.3.13 transfers the existing canvas and frame cache when Codex replaces the native button during Voice/Send transitions. With unchanged geometry, the cached Metal frames do not need to be baked again.
 
