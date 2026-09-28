@@ -10,7 +10,7 @@ This is an independent, third-party **API v3** package with the stable ID `ct-me
 
 | Surface | Effect |
 | --- | --- |
-| Primary voice / Send / Stop button | The same liquid-metal effect in all three states; reuses the material cache while the native button and geometry remain unchanged, preserving disabled behavior |
+| Primary voice / Send / Stop button | The same liquid-metal effect in all three states; reuses the material cache even when Codex replaces a button of the same size, preserving disabled behavior |
 | Adjacent dictation microphone | Passive reflected light from the primary button, without its own metal animation |
 | Composer | Border Beam around the edge, stronger while running |
 | Selected sidebar item | Metal light with canvas reuse when selection changes |
@@ -28,11 +28,11 @@ You need the Codex desktop app and a working Codex Tweaks API v3 host. This is a
 
 1. In Codex Tweaks, open **Packages → Install from Git**.
 2. Use `https://github.com/Ne1ther/codex-tweaks-metal-beam.git`.
-3. Select the released `v0.3.12` tag, or the latest semantic-version tag selector for updates.
+3. Select the released `v0.3.13` tag, or the latest semantic-version tag selector for updates.
 4. After installation and compilation, enable **ct-metal-beam**.
 5. Focus the Codex window to see the idle animation.
 
-Alternatively, download **ct-metal-beam-0.3.12.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
+Alternatively, download **ct-metal-beam-0.3.13.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
 
 For an existing installation, use the host's update flow for the same package ID. Avoid enabling duplicate copies of the effect.
 
@@ -43,6 +43,8 @@ The main switch is on the **Codex Tweaks packages page**. This version does not 
 Open `preview/standalone.html` for an offline demonstration. Its settings panel affects only the preview. Disabling the package removes its decorations and releases its observers, listeners, animation work, and graphics contexts.
 
 ## Performance and compatibility
+
+Version 0.3.13 transfers the existing canvas and frame cache when Codex replaces the native button during Voice/Send transitions. With unchanged geometry, the cached Metal frames do not need to be baked again.
 
 Version 0.3.12 gives primary voice the same cached Metal renderer as Send and Stop, removing the separate breathing glow. State changes reuse the material and atlas when the native button and geometry are unchanged. Matching uses control labels without reading drafts; the adjacent dictation microphone receives only reflection. Compared with the previous simple voice glow, Metal has cache generation and rendering costs.
 

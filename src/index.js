@@ -51,17 +51,21 @@ export function activate({root,onCleanup,api}) {
       portal=document.createElement('div');portal.className='ctmb-glow-portal';portal.setAttribute(OWN,'glow');overlay.append(portal);position(portal,box);
       el.append(node);
     }else{overlay.append(node);position(node,box);}
-    return {el,node,portal,handle:null,restore,neighbor:null,neighbors:[],signature:''};
+    return {el,node,portal,handle:null,restore,neighbor:null,neighbors:[],signature:'',
+      composer:kind==='metal'?el.closest(COMPOSER):null,anchor:box,park:null,releaseTimer:0,disconnectedUntil:0};
   }
   function remove(map,el){
-    const item=map.get(el);if(!item)return;map.delete(el);item.handle?.dispose();item.node.remove();item.portal?.remove();
+    const item=map.get(el);if(!item)return;map.delete(el);if(item.releaseTimer)clearTimeout(item.releaseTimer);item.handle?.dispose();item.node.remove();item.park?.remove();item.portal?.remove();
     for(const restore of item.restore.reverse())restore();resize.unobserve(el);
   }
   function error(el,error){failed.add(el);lastError=String(error?.message||error).slice(0,180);schedule();}
   function updateMetal(el,box){
     let item=metals.get(el);
-    if(item&&!item.node.isConnected){remove(metals,el);item=null;}
+    // Native React can replace our appended child while keeping the button.
+    // Reattach the existing renderer and atlas instead of starting a new bake.
+    if(item&&!item.node.isConnected){el.append(item.node);item.signature='';}
     if(!item){item=prepare(el,'metal',box);metals.set(el,item);resize.observe(el);}
+    item.anchor=box;
     position(item.portal,box);
     const candidate=neighbor(el);
     const nextNeighbor=[...metals.values()].some(other=>other!==item&&other.neighbor===candidate)?null:candidate;
@@ -104,6 +108,27 @@ export function activate({root,onCleanup,api}) {
       if(getComputedStyle(el).position==='static')item.restore.push(attribute(el,POSITION,''));
       item.restore.push(attribute(el,METAL,visibleTheme));el.append(item.node);
       item.el=el;item.signature='';metals.set(el,item);resize.observe(el);retargets++;
+    }
+  }
+  function reusePrimaryMaterial(wanted){
+    const spare=[...metals.values()].filter(item=>item.composer&&!wanted.has(item.el));
+    for(const [el,box] of wanted){
+      if(metals.has(el))continue;
+      const composer=el.closest(COMPOSER);if(!composer)continue;
+      const index=spare.findIndex(item=>item.composer===composer||(
+        !item.el.isConnected&&Math.abs(item.anchor.x+item.anchor.width/2-box.x-box.width/2)<48&&
+        Math.abs(item.anchor.y+item.anchor.height/2-box.y-box.height/2)<48&&
+        Math.abs(item.anchor.width-box.width)<24&&Math.abs(item.anchor.height-box.height)<24));
+      if(index<0)continue;
+      const item=spare.splice(index,1)[0],old=item.el;
+      metals.delete(old);resize.unobserve(old);if(item.releaseTimer)clearTimeout(item.releaseTimer);
+      item.releaseTimer=0;item.disconnectedUntil=0;
+      for(const restore of item.restore.reverse())restore();item.restore=[];
+      if(getComputedStyle(el).position==='static')item.restore.push(attribute(el,POSITION,''));
+      item.restore.push(attribute(el,METAL,visibleTheme));
+      el.append(item.node);item.park?.remove();item.park=null;
+      item.el=el;item.composer=composer;item.anchor=box;item.signature='';
+      metals.set(el,item);resize.observe(el);retargets++;
     }
   }
   function removeModel(el,item){
@@ -159,8 +184,24 @@ export function activate({root,onCleanup,api}) {
       }
       if(config.beam)for(const el of found.composers){const box=geometry(el);if(box&&!failed.has(el))wantBeam.set(el,box);if(wantBeam.size>=2)break;}
     }
-    reuseSidebarMaterials(wantMetal);
-    for(const el of metals.keys())if(!wantMetal.has(el))remove(metals,el);
+    reuseSidebarMaterials(wantMetal);reusePrimaryMaterial(wantMetal);
+    for(const [el,item] of metals)if(!wantMetal.has(el)){
+      // Voice and Send may arrive in adjacent native commits. Keep a detached
+      // cache briefly so the next button can take it without an empty frame.
+      if(item.composer&&!el.isConnected){
+        if(!item.disconnectedUntil){
+          item.disconnectedUntil=performance.now()+300;
+          // Give the detached renderer its old dimensions. A zero-size resize
+          // would otherwise invalidate the atlas before Send arrives.
+          const park=document.createElement('div');park.setAttribute(OWN,'park');
+          park.style.cssText=`position:absolute;visibility:hidden;width:${item.anchor.width}px;height:${item.anchor.height}px;border-radius:${item.anchor.radius}px`;
+          overlay.append(park);park.append(item.node);item.park=park;position(item.portal,null);
+          item.releaseTimer=window.setTimeout(()=>{item.releaseTimer=0;if(live)scan();},310);
+        }
+        if(performance.now()<item.disconnectedUntil)continue;
+      }
+      remove(metals,el);
+    }
     for(const el of beams.keys())if(!wantBeam.has(el))remove(beams,el);
     for(const [el,box] of wantMetal)try{updateMetal(el,box);}catch(e){error(el,e);remove(metals,el);}
     for(const [el,box] of wantBeam)try{updateBeam(el,box);}catch(e){error(el,e);remove(beams,el);}
@@ -177,8 +218,14 @@ export function activate({root,onCleanup,api}) {
   }});
   const observer=new MutationObserver(records=>{
     const removedMount=records.some(record=>(metals.has(record.target)&&!metals.get(record.target).node.isConnected)||(marks.get(record.target)?.node&&!marks.get(record.target).node.isConnected));
+    const primaryChanged=records.some(record=>record.type==='childList'&&
+      [...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&!node.hasAttribute(OWN)&&
+        (node.matches?.(COMPOSER)||node.querySelector?.(COMPOSER)||
+          (record.target.closest?.(COMPOSER)&&
+            (node.matches?.('button,[role="button"]')||node.querySelector?.('button,[role="button"]'))))));
     const selectionChanged=selectionMutation(records);
-    if(selectionChanged)scheduleSelection();else if(removedMount||relevantMutation(records))schedule();
+    if(removedMount||primaryChanged)scan();
+    else if(selectionChanged)scheduleSelection();else if(relevantMutation(records))schedule();
   });
   observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['aria-label','title','aria-busy','aria-current','aria-selected','aria-expanded','aria-pressed','aria-disabled','disabled','hidden','aria-hidden','data-state','data-selected','data-theme','class','data-composer-surface-variant','data-codex-composer-root','data-app-action-sidebar-thread-active','data-app-action-sidebar-thread-selected']});
   const events=[];
@@ -187,7 +234,7 @@ export function activate({root,onCleanup,api}) {
   listen(reduced,'change',scan);listen(contrast,'change',scan);listen(systemTheme,'change',scan);
   document.fonts?.ready.then(()=>{if(live)scheduleLayout();});
   listen(window,'storage',event=>{if(event.key===KEY){config=readConfig();scan();}});
-  const diagnose=()=>({...runtimeState(),version:'0.3.12',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
+  const diagnose=()=>({...runtimeState(),version:'0.3.13',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
   const update=patch=>{config=normalize({...config,...patch});const saved=writeConfig(config);scan();return saved;};
   api?.registerLibrary('metal-beam',{getStatus:diagnose,getConfig:()=>({...config}),setConfig:update});
   function cleanup(){

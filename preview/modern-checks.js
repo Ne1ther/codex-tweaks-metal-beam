@@ -28,6 +28,8 @@ export async function checkModernControls({check,wait,library:getLibrary,compose
   const mount=voice.querySelector('.ctmb-metal-mount'),ring=primaryRing(),bakes=runtimeState().ringCacheBakes;
   const sameMaterial=()=>voice.querySelector('.ctmb-metal-mount')===mount&&primaryRing()===ring&&!!ring&&runtimeState().ringCacheBakes===bakes&&voice.querySelectorAll('.ctmb-metal-mount').length===1;
   check('Primary voice uses the existing cached material renderer',!!ring&&runtimeState().ringCachePending===0&&!runtimeState().ringCacheError);
+  mount.remove();await wait(25);
+  check('Native rerender reattaches a removed material child without rebaking',sameMaterial());
   const clickCount=voiceClicks();voice.click();await wait(100);
   check('Native primary voice click and icon are preserved',voiceClicks()===clickCount+1&&voice.querySelector('svg')===voiceIcon&&sameBox(voiceBox,voice.getBoundingClientRect()));
   voice.disabled=true;await wait(140);const disabledClicks=voiceClicks();voice.click();
@@ -41,7 +43,30 @@ export async function checkModernControls({check,wait,library:getLibrary,compose
   check('Clearing restores primary voice with the same material and no extra cache bake',voice.getAttribute('aria-label')==='开启语音聊天'&&sameMaterial()&&sameBox(voiceBox,voice.getBoundingClientRect()));
   voice.setAttribute('aria-label','Start new voice chat');await wait(150);
   check('English voice label reuses the same primary Metal',sameMaterial());
-  composer(true);await wait(200);check('Home voice label is supported and old composer resources are removed',$('.send').hasAttribute('data-codex-tweaks-mb-metal')&&$('.send').getAttribute('aria-label')==='开始新的语音聊天'&&!$('.footer-voice').hasAttribute('data-codex-tweaks-mb-metal')&&!mount.isConnected&&!voice.hasAttribute('data-codex-tweaks-mb-metal'));
+  // Codex's voice and Send branches can replace the native button instead
+  // of changing its label in place. The first rendered frame must inherit the
+  // original material rather than starting another shader bake.
+  let switched=$('.send'),nativeClicks=0;
+  const replacePrimary=label=>{
+    const old=switched,next=document.createElement('button');
+    next.className='send';next.setAttribute('aria-label',label);
+    next.append(old.querySelector('svg').cloneNode(true));
+    next.addEventListener('click',()=>nativeClicks++);
+    old.replaceWith(next);switched=next;
+    return old;
+  };
+  const beforeReplacementBakes=runtimeState().ringCacheBakes;
+  const oldVoice=replacePrimary('Send message');await wait(25);
+  check('Replacing Voice with Send keeps the same decoded Metal before the old 90 ms scan',switched.querySelector('.ctmb-metal-mount')===mount&&primaryRing()===ring&&!oldVoice.hasAttribute('data-codex-tweaks-mb-metal')&&runtimeState().ringCacheBakes===beforeReplacementBakes);
+  switched.click();check('New native Send remains clickable through reused Metal',nativeClicks===1);
+  const oldSend=replacePrimary('开启语音聊天');await wait(25);
+  check('Replacing Send with Voice also keeps one cached Metal',switched.querySelector('.ctmb-metal-mount')===mount&&primaryRing()===ring&&!oldSend.hasAttribute('data-codex-tweaks-mb-metal')&&runtimeState().ringCacheBakes===beforeReplacementBakes);
+  for(let i=0;i<6;i++){replacePrimary(i%2?'开启语音聊天':'Send message');await wait(25);}
+  check('Rapid native branch switches do not stack mounts or rebake the shader',switched.querySelectorAll('.ctmb-metal-mount').length===1&&primaryRing()===ring&&runtimeState().ringCacheBakes===beforeReplacementBakes&&library.getStatus().metals===2);
+  const parent=switched.parentElement;switched.remove();await wait(140);
+  const delayed=document.createElement('button');delayed.className='send';delayed.setAttribute('aria-label','Send message');delayed.append(voiceIcon.cloneNode(true));parent.append(delayed);switched=delayed;await wait(25);
+  check('A two-commit native switch recovers its retained cache without a new bake',switched.querySelector('.ctmb-metal-mount')===mount&&primaryRing()===ring&&runtimeState().ringCacheBakes===beforeReplacementBakes);
+  composer(true);await wait(200);check('Home voice label is supported with one primary material and no stale button',$('.send').hasAttribute('data-codex-tweaks-mb-metal')&&$('.send').getAttribute('aria-label')==='开始新的语音聊天'&&!$('.footer-voice').hasAttribute('data-codex-tweaks-mb-metal')&&!voice.isConnected&&!voice.hasAttribute('data-codex-tweaks-mb-metal')&&library.getStatus().metals===2&&document.querySelectorAll('.ctmb-metal-mount').length===2);
   library.setConfig({broad:false,beam:false,modelHaze:false});await wait(350);
   await waitForCache();
   const simple=runtimeState(),scans=library.getStatus().scans,wordLayer=$('[data-codex-tweaks-mb-svg-wordmark]'),wordOpacity=getComputedStyle(wordLayer,'::after').opacity;
