@@ -4,7 +4,7 @@ import {rasterizeBeam} from './beam-raster';
 
 // Keep the original ocean material, but rasterize four fixed lighting phases.
 // Only their opacity changes during playback: no animated gradient, mask or blur.
-export function CachedBeam({radius, theme, running, paused}) {
+export function CachedBeam({radius, theme, running, paused, ambient=false}) {
   const root=useRef(null),id=useId().replace(/:/g,'-');
   const [raster,setRaster]=useState(null);
   const frames=useMemo(()=>Array.from({length:4},(_,i)=>{
@@ -32,10 +32,10 @@ export function CachedBeam({radius, theme, running, paused}) {
   useEffect(()=>{
     for(const animation of root.current?.getAnimations({subtree:true})??[]){
       if(animation.animationName!=='ctmb-beam-crossfade')continue;
-      animation.updatePlaybackRate(running?1.5:.8);
-      if(paused)animation.pause();else animation.play();
+      animation.updatePlaybackRate(ambient?.55:running?1.5:.8);
+      if(paused||(ambient&&raster?.frames!==frames))animation.pause();else animation.play();
     }
-  },[paused,running,frames]);
+  },[paused,ambient,running,frames,raster]);
   const images=raster?.frames===frames?raster.images:null;
   return <div ref={root} className="ctmb-cached-beam" data-raster={images?'ready':'css'} style={{borderRadius:radius,opacity:running?1:.82}}>
     {frames.map(({key,css},i)=><React.Fragment key={key}>

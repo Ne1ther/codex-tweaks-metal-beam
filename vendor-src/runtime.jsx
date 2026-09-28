@@ -12,7 +12,7 @@ import {CachedBeam} from './CachedBeam';
 
 const roots = new Set();
 let pauseRaf = 0;
-let frozen = false;
+let motionMode = 'active';
 let active = false;
 
 class EffectBoundary extends React.Component {
@@ -65,19 +65,20 @@ export function startRuntime() {
   startRuntimeLoop();
 }
 
-export function setMotionPaused(paused) {
-  frozen = paused;
+export function setMotionMode(mode) {
+  motionMode = mode;
   if (pauseRaf) cancelAnimationFrame(pauseRaf);
   pauseRaf = 0;
-  if (!paused) { resumeShared(); return; }
+  if (mode==='active') { resumeShared(); return; }
+  if (document.hidden) { pauseShared(); return; }
   // A package enabled with Reduce Motion must paint its initial static frame.
   const freezeAfterFirstCopy = () => {
     pauseRaf = 0;
-    if (!active || !frozen || !SHARED) return;
+    if (!active || motionMode!==mode || !SHARED) return;
     if ([...SHARED.instances].some(instance => instance.visible && !instance.everCopied)) {
-      resumeShared();
+      resumeShared(false);
       pauseRaf = requestAnimationFrame(freezeAfterFirstCopy);
-    } else pauseShared();
+    } else pauseShared(mode==='ambient');
   };
   freezeAfterFirstCopy();
 }
@@ -87,11 +88,12 @@ export function setActivity(running) { setFrameInterval(running ? 1000/12 : 1000
 export function runtimeState() {
   return {webgl:!!SHARED, instances:SHARED?.instances.size??0,
     reflections:reflectionTargetCount(), frames:SHARED?.frameCount??0,
-    ...runtimeLoopState(), paused:frozen};
+    ...runtimeLoopState(), motionMode, paused:motionMode==='paused'};
 }
 
 export function disposeRuntime() {
   active = false;
+  motionMode = 'active';
   if (pauseRaf) cancelAnimationFrame(pauseRaf);
   pauseRaf = 0;
   for (const root of [...roots]) root.dispose();

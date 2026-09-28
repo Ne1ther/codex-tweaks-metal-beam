@@ -80,7 +80,7 @@ export async function checkModernControls({check,wait,library:getLibrary,compose
   const focusDescriptor=Object.getOwnPropertyDescriptor(document,'hasFocus');
   try{
     Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>false});window.dispatchEvent(new FocusEvent('blur'));await wait(120);
-    check('Blur pauses SVG and primary voice Metal',getComputedStyle(wordLayer,'::after').animationPlayState==='paused'&&ringPaused());
+    check('Blur keeps cached voice Metal and SVG glyph motion',getComputedStyle(wordLayer,'::after').animationPlayState==='running'&&!ringPaused()&&runtimeState().motionMode==='ambient'&&!runtimeState().loopScheduled);
   }finally{if(focusDescriptor)Object.defineProperty(document,'hasFocus',focusDescriptor);else delete document.hasFocus;window.dispatchEvent(new FocusEvent('focus'));}
   await wait(120);
   check('Focus resumes SVG and voice without replacing their layers',wordLayer===$('[data-codex-tweaks-mb-svg-wordmark]')&&getComputedStyle(wordLayer,'::after').animationPlayState==='running'&&primaryRing()?.getAnimations()[0]===player&&player.playState==='running');

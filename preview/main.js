@@ -18,7 +18,6 @@ let cleanup=null,library=null,settingsMount=null,settingsCleanup=null,taskRunnin
 const report=value=>{$('#report').textContent=typeof value==='string'?value:JSON.stringify(value,null,2);};
 const scopeTargets=()=>[...document.querySelectorAll('.outline-tick,.usage-summary')];
 const nativeDecoration=el=>{const css=getComputedStyle(el);return [css.boxShadow,css.outlineStyle,css.outlineWidth,css.outlineColor,css.borderRadius].join('|');};
-const nativeScope=new Map(scopeTargets().map(el=>{el.focus({preventScroll:true});const before=nativeDecoration(el);el.blur();return [el,before];}));
 function paintState(){$('#state').textContent=taskRunning?'运行中 · 流光增强':'空闲 · 缓慢流动';$('#dot').classList.toggle('working',taskRunning);}
 function composer(home=false){
   taskRunning=false;paintState();
@@ -77,7 +76,11 @@ $('#tests').onclick=async()=>{
   $('#tests').disabled=true;const results=[];
   const check=(label,condition,detail)=>{results.push({test:label,pass:!!condition,...(detail?{detail}: {})});report(results);};
   try{
-    modernFixture=false;modeLabel('Codex');composer();enable();library.setConfig({...DEFAULTS});document.documentElement.dataset.theme='dark';$('.fixture').scrollIntoView({block:'center',behavior:'instant'});await wait(650);
+    modernFixture=false;modeLabel('Codex');composer();disable();
+    // Compare within the same pointer/keyboard modality. Measuring once at
+    // page load can accidentally compare :focus-visible against :focus.
+    const nativeScope=new Map(scopeTargets().map(el=>{el.focus({preventScroll:true});const before=nativeDecoration(el);el.blur();return [el,before];}));
+    enable();library.setConfig({...DEFAULTS});document.documentElement.dataset.theme='dark';$('.fixture').scrollIntoView({block:'center',behavior:'instant'});await wait(650);
     let status=library.getStatus();check('Send material and passive voice reflection mounted',status.metals===2&&status.reflections===1&&status.beams===1&&!!$('.voice [data-ctmb-metal-fx-reflection]')&&!$('.voice').hasAttribute('data-codex-tweaks-mb-metal'),status);
     check('Conversation outline and usage widget receive no decoration markers',scopeTargets().every(el=>!el.hasAttribute('data-codex-tweaks-mb-surface')&&!el.hasAttribute('data-codex-tweaks-mb-metal')&&!el.querySelector('[data-codex-tweaks-mb-owned]')));
     for(const [el,before] of nativeScope){el.focus({preventScroll:true});check(`Native focus styling is preserved: ${el.getAttribute('aria-label')}`,nativeDecoration(el)===before,{before,after:nativeDecoration(el)});el.blur();}
@@ -234,13 +237,13 @@ $('#tests').onclick=async()=>{
     const focusDescriptor=Object.getOwnPropertyDescriptor(document,'hasFocus');
     try{
       Object.defineProperty(document,'hasFocus',{configurable:true,value:()=>false});window.dispatchEvent(new FocusEvent('blur'));await wait(260);
-      const frameCount=runtimeState().frames;await wait(300);
-      check('Window blur freezes the shader and clears its scheduled work',library.getStatus().paused&&frameCount===runtimeState().frames&&!runtimeState().loopScheduled);
-      check('Window blur freezes all decorative CSS motion',[...document.getAnimations()].filter(a=>a.animationName?.startsWith('ctmb-')).every(a=>a.playState==='paused'||a.playState==='finished'));
-      check('Window blur also freezes cached ring playback',ringAnimations().every(a=>a.playState==='paused')&&runtimeState().ringCachePending===0);
+      const frameCount=runtimeState().frames,ringTimes=ringAnimations().map(a=>[a,a.currentTime]);await wait(300);
+      check('Window blur stops shader, reflections and new cache work',library.getStatus().ambient&&runtimeState().motionMode==='ambient'&&frameCount===runtimeState().frames&&!runtimeState().loopScheduled&&runtimeState().ringCachePending===0);
+      check('Window blur keeps decoded metal moving at half speed without a JS render loop',ringTimes.length===2&&ringTimes.every(([a,time])=>a.playState==='running'&&Math.abs(a.playbackRate-.5)<.001&&a.currentTime>time));
+      check('Window blur keeps lightweight glyph and Beam opacity motion',getComputedStyle($('.model-name'),'::after').animationPlayState==='running'&&getComputedStyle($('.mode-label'),'::after').animationPlayState==='running'&&[...$('.ctmb-cached-beam').getAnimations({subtree:true})].some(a=>a.animationName==='ctmb-beam-crossfade'&&a.playState==='running'));
     }finally{if(focusDescriptor)Object.defineProperty(document,'hasFocus',focusDescriptor);else delete document.hasFocus;window.dispatchEvent(new FocusEvent('focus'));}
     await wait(250);const focusedFrame=runtimeState().frames;await wait(250);
-    check('Refocusing resumes the existing material',!library.getStatus().paused&&runtimeState().frames>focusedFrame);
+    check('Refocusing resumes the existing material',!library.getStatus().paused&&!library.getStatus().ambient&&runtimeState().frames>focusedFrame);
     modernFixture=true;modeLabel('Codex');composer();
     await checkModernControls({check,wait,library:()=>library,composer,modeLabel,enable,disable,voiceClicks:()=>primaryVoiceClicks,runtimeState});
     report({passed:results.filter(r=>r.pass).length,total:results.length,results});

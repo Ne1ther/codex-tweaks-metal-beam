@@ -18,7 +18,7 @@ This is an independent, third-party **API v3** package with the stable ID `ct-me
 | Model and effort label | Silver, pale blue and violet blending inside the native text glyphs; no button background or chevron effect |
 | Codex / ChatGPT heading | Color within the native glyphs, including the new SVG wordmarks; no arrow or menu decoration |
 
-Decorations do not handle clicks or replace native actions. Motion pauses when the window loses focus, the page is hidden, or Reduce Motion is enabled. This package does not implement native window transparency, Ghostty-style background blur, or HDR output.
+Decorations do not handle clicks or replace native actions. When a visible window loses focus, decoded Metal frames and lightweight opacity effects keep moving while live shaders, reflections, and new cache baking stop. Hidden pages and Reduce Motion pause all motion. This package does not implement native window transparency, Ghostty-style background blur, or HDR output.
 
 Conversation outline ticks, the usage widget, generic toolbars, and menus retain their original appearance without extra hover frames. Native keyboard focus indicators are preserved.
 
@@ -28,11 +28,11 @@ You need the Codex desktop app and a working Codex Tweaks API v3 host. This is a
 
 1. In Codex Tweaks, open **Packages → Install from Git**.
 2. Use `https://github.com/Ne1ther/codex-tweaks-metal-beam.git`.
-3. Select the released `v0.3.14` tag, or the latest semantic-version tag selector for updates.
+3. Select the released `v0.3.15` tag, or the latest semantic-version tag selector for updates.
 4. After installation and compilation, enable **ct-metal-beam**.
-5. Focus the Codex window to see the idle animation.
+5. Return to Codex to see the idle animation; decoded frames continue at a gentler pace when the window is visible but unfocused.
 
-Alternatively, download **ct-metal-beam-0.3.14.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
+Alternatively, download **ct-metal-beam-0.3.15.zip** from [Releases](https://github.com/Ne1ther/codex-tweaks-metal-beam/releases/latest) and use the host's local package installer. The archive contains `package.json` at its root, with no host application, `node_modules`, or symlinks.
 
 For an existing installation, use the host's update flow for the same package ID. Avoid enabling duplicate copies of the effect.
 
@@ -43,6 +43,8 @@ The main switch is on the **Codex Tweaks packages page**. This version does not 
 Open `preview/standalone.html` for an offline demonstration. Its settings panel affects only the preview. Disabling the package removes its decorations and releases its observers, listeners, animation work, and graphics contexts.
 
 ## Performance and compatibility
+
+Version 0.3.15 keeps decoded Metal frames and lightweight opacity effects flowing in visible but unfocused windows. It stops live shaders, reflections, and new atlas baking; uncached rings hold a static frame until focus returns. Hidden pages and Reduce Motion still pause everything.
 
 Version 0.3.14 avoids full control discovery on every sidebar scroll event. Visible effects still reposition at display refresh rate, then targets are rediscovered once scrolling settles. Unrelated conversation autoscroll no longer searches its subtree. The new usage ring is excluded from Metal decoration.
 

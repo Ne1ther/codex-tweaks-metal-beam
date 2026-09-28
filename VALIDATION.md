@@ -1,3 +1,14 @@
+# 0.3.15 validation · 2026-09-29
+
+Visible but unfocused windows now keep already decoded Metal rings moving at half playback speed. Beam's decoded textures crossfade more slowly, while text effects continue their small opacity changes. The shared WebGL loop, halo/reflection sampling and new ring-atlas baking stop. Hidden pages and Reduce Motion still pause all motion; uncached rings remain static until focus returns.
+
+- `npm run build`, `npm test` (39/39), and `npm run package` passed. The package is Renderer-only API v3 with no new Node permission, settings route or native-window hook.
+- The standalone fixture's full browser suite passed 108/108 in the Codex in-app browser. During simulated loss of focus, cached animations advanced at `playbackRate = 0.5` while shader frame count stayed constant, no render loop was scheduled, and no cache bake remained pending. Refocus reused the material and resumed the original rate.
+- Four initial focus-style failures were caused by the fixture comparing keyboard-initiated `:focus-visible` at page load against pointer-initiated `:focus` after clicking Run. The check now measures the native baseline immediately before enabling the package under the same input modality; all four passed. This change is confined to the fixture.
+- The installed Codex Tweaks package showed source and active version `0.3.15` after its own rebuild. Native Codex rendering and system-wide CPU/GPU percentages were not measured in this run, so the preview's zero shader frames must not be read as zero GPU cost or a guaranteed utilization target.
+
+---
+
 # 0.3.12 validation · 2026-09-27
 
 The flow under test is empty composer primary voice → typed Send → running Stop → cleared input primary voice. All three states now use the existing cached Metal renderer. The separate voice-glow module, nodes and animation lifecycle were removed; the adjacent dictation microphone stays reflection-only.

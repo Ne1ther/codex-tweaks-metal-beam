@@ -10,7 +10,7 @@ import {setDirectSurfaceCached} from './direct';
 type Player={key:string;abort:AbortController;bytes:number;url:string;node:HTMLDivElement|null;animation:Animation|null;time:number;disposed:boolean;rate:number;playing:boolean|null;sourceOpacity:string};
 const players=new Map<MetalFxInstance,Player>(),failed=new WeakMap<MetalFxInstance,string>();
 const LIMIT=64*1024*1024;
-let reserved=0,speed=1,paused=false,error='',bakes=0;
+let reserved=0,speed=1,paused=false,allowBake=true,error='',bakes=0;
 function keyOf(inst:MetalFxInstance,preset:PresetMode){return JSON.stringify([inst.cssWidth,inst.cssHeight,Math.min(2,window.devicePixelRatio||1),inst.cornerRadius,inst.ringCssPx,inst.shaderScale,inst.opacityMul,preset]);}
 function dispose(inst:MetalFxInstance,entry:Player){
   if(entry.disposed)return;entry.disposed=true;entry.abort.abort();entry.animation?.cancel();entry.node?.remove();
@@ -20,7 +20,10 @@ function dispose(inst:MetalFxInstance,entry:Player){
 }
 function setPlaying(inst:MetalFxInstance,entry:Player){
   const animation=entry.animation;if(!animation)return;
-  if(entry.rate!==speed){animation.updatePlaybackRate(speed);entry.rate=speed;}
+  // Half-speed phase sampling needs only about 30 distinct atlas frames per
+  // second while the unfocused window remains visibly fluid.
+  const rate=allowBake?speed:.5;
+  if(entry.rate!==rate){animation.updatePlaybackRate(rate);entry.rate=rate;}
   const playing=!(paused||inst.paused||!inst.visible||document.hidden);
   if(entry.playing!==playing){if(playing)animation.play();else animation.pause();entry.playing=playing;}
 }
@@ -29,7 +32,7 @@ export function syncRingPlayer(inst:MetalFxInstance,preset:PresetMode,time:numbe
   const key=keyOf(inst,preset);let entry=players.get(inst);
   if(entry&&entry.key!==key){dispose(inst,entry);entry=undefined;}
   if(entry){entry.time=time;setPlaying(inst,entry);return !!entry.node;}
-  if(paused||inst.paused||!inst.visible||document.hidden||failed.get(inst)===key)return false;
+  if(paused||!allowBake||inst.paused||!inst.visible||document.hidden||failed.get(inst)===key)return false;
   let bytes:number;
   try{bytes=estimateRingAtlasBytes(inst);}catch{return false;}
   if(!bytes||reserved+bytes>LIMIT)return false;
@@ -60,8 +63,9 @@ export function hasRingPlayer(inst:MetalFxInstance){return !!players.get(inst)?.
 export function invalidateRingPlayer(inst:MetalFxInstance,preset:PresetMode){const item=players.get(inst);if(item&&(inst.mask||inst.deform||item.key!==keyOf(inst,preset)))removeRingPlayer(inst);}
 export function refreshRingDocumentVisibility(){for(const [inst,item] of players){if(document.hidden&&!item.node)dispose(inst,item);else setPlaying(inst,item);}}
 export function removeRingPlayer(inst:MetalFxInstance){const item=players.get(inst);if(item)dispose(inst,item);failed.delete(inst);}
-export function pauseRingPlayers(value:boolean){paused=value;for(const [inst,item] of players){if(value&&!item.node)dispose(inst,item);else setPlaying(inst,item);}}
+/** Ambient mode keeps decoded rings moving but forbids GPU-heavy new bakes. */
+export function pauseRingPlayers(value:boolean,canBake=!value){paused=value;allowBake=canBake;for(const [inst,item] of players){if(!canBake&&!item.node)dispose(inst,item);else setPlaying(inst,item);}}
 export function setRingSpeed(value:number){if(speed===value)return;speed=value;for(const [inst,item] of players)setPlaying(inst,item);}
 export function refreshRingVisibility(inst:MetalFxInstance){const item=players.get(inst);if(item)setPlaying(inst,item);}
-export function disposeRingPlayers(){for(const [inst,item] of players)dispose(inst,item);reserved=0;paused=false;speed=1;error='';bakes=0;}
+export function disposeRingPlayers(){for(const [inst,item] of players)dispose(inst,item);reserved=0;paused=false;allowBake=true;speed=1;error='';bakes=0;}
 export function ringPlayerState(){return {cachedRings:[...players.values()].filter(p=>!!p.node).length,ringCachePending:[...players.values()].filter(p=>!p.node).length,ringCacheBytes:reserved,ringCacheBakes:bakes,ringCacheError:error};}

@@ -3,13 +3,13 @@ import {OWN,METAL,POSITION,SURFACE_MARK,CSS} from './style.js';
 import {discover,geometry,neighbor,isSidebarRow,theme,running,relevantMutation,selectionMutation,COMPOSER,SIDEBAR} from './targets.js';
 import {mountModelText} from './model-haze.js';
 import {mountSvgWordmark} from './wordmark.js';
-import {startRuntime,disposeRuntime,mountMetal,mountBeam,setMotionPaused,setActivity,invalidateReflectionGeometry,runtimeState,isMetalFxSupported} from './vendor/material-runtime.js';
+import {startRuntime,disposeRuntime,mountMetal,mountBeam,setMotionMode,setActivity,invalidateReflectionGeometry,runtimeState,isMetalFxSupported} from './vendor/material-runtime.js';
 
 export function activate({root,onCleanup,api}) {
   const route=new URLSearchParams(location.search).get('initialRoute');
   if(route==='/avatar-overlay'||location.pathname.endsWith('/avatar-overlay-composition-surface.html'))return;
   let config=readConfig(),live=true,timer=0,scrollTimer=0,layoutRaf=0,selectionRaf=0,lastError='';
-  let visibleTheme=theme(),paused=false,scans=0,retargets=0;
+  let visibleTheme=theme(),paused=false,ambient=false,scans=0,retargets=0;
   const metals=new Map(),beams=new Map(),marks=new Map(),models=new Map(),wordmarks=new Map(),failed=new WeakSet();
   const positions=new WeakMap();
   const reduced=matchMedia('(prefers-reduced-motion:reduce)'),contrast=matchMedia('(forced-colors:active)'),systemTheme=matchMedia('(prefers-color-scheme:dark)');
@@ -89,7 +89,7 @@ export function activate({root,onCleanup,api}) {
     if(item&&!item.node.isConnected){remove(beams,el);item=null;}
     if(!item){item=prepare(el,'beam',box);beams.set(el,item);resize.observe(el);}
     position(item.node,box);setAttribute(item.node,'data-paused',String(paused));setAttribute(item.node,'data-theme',visibleTheme);
-    const props={radius:box.radius,theme:visibleTheme,running:running(el),paused};
+    const props={radius:box.radius,theme:visibleTheme,running:running(el),paused,ambient};
     const signature=JSON.stringify(props);if(signature===item.signature)return;item.signature=signature;
     if(item.handle)item.handle.update(props);else item.handle=mountBeam(item.node,props,e=>error(el,e));
   }
@@ -182,7 +182,8 @@ export function activate({root,onCleanup,api}) {
   }
   function scan(){
     if(timer)clearTimeout(timer);timer=0;if(!live)return;scans++;invalidateReflectionGeometry();
-    visibleTheme=theme();paused=!config.motion||reduced.matches||document.hidden||!document.hasFocus();
+    visibleTheme=theme();paused=!config.motion||reduced.matches||document.hidden;
+    ambient=!paused&&!document.hasFocus();
     const found=discover(config.broad,config.modelHaze,config.wordmarkHaze),wantMetal=new Map(),wantBeam=new Map();updateMarks(found);updateModels(found);updateWordmarks(found);
     const add=(el)=>{const box=geometry(el);if(box&&!failed.has(el))wantMetal.set(el,box);};
     if(!contrast.matches){
@@ -214,7 +215,7 @@ export function activate({root,onCleanup,api}) {
     for(const [el,box] of wantMetal)try{updateMetal(el,box);}catch(e){error(el,e);remove(metals,el);}
     for(const [el,box] of wantBeam)try{updateBeam(el,box);}catch(e){error(el,e);remove(beams,el);}
     setActivity([...wantBeam.keys(),...wantMetal.keys()].some(running));
-    setMotionPaused(paused);
+    setMotionMode(paused?'paused':ambient?'ambient':'active');
   }
   function schedule(){if(live&&!timer)timer=window.setTimeout(scan,90);}
   function scheduleSelection(){if(live&&!selectionRaf)selectionRaf=requestAnimationFrame(()=>{selectionRaf=0;scan();});}
@@ -242,7 +243,7 @@ export function activate({root,onCleanup,api}) {
   listen(reduced,'change',scan);listen(contrast,'change',scan);listen(systemTheme,'change',scan);
   document.fonts?.ready.then(()=>{if(live)scheduleLayout();});
   listen(window,'storage',event=>{if(event.key===KEY){config=readConfig();scan();}});
-  const diagnose=()=>({...runtimeState(),version:'0.3.14',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,scans,error:lastError});
+  const diagnose=()=>({...runtimeState(),version:'0.3.15',supported,metals:metals.size,beams:beams.size,surfaces:marks.size,modelBands:models.size,wordmarks:wordmarks.size,retargets,running:[...beams.keys()].some(running),paused,ambient,scans,error:lastError});
   const update=patch=>{config=normalize({...config,...patch});const saved=writeConfig(config);scan();return saved;};
   api?.registerLibrary('metal-beam',{getStatus:diagnose,getConfig:()=>({...config}),setConfig:update});
   function cleanup(){

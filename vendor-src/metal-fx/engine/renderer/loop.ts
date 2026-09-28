@@ -252,15 +252,15 @@ export function getSharedPreset(): PresetMode | null {
   return SHARED ? { ...SHARED.preset } : null;
 }
 
-export function pauseShared(): void {
-  pauseRingPlayers(true);
+export function pauseShared(keepCachedMotion=false): void {
+  pauseRingPlayers(!keepCachedMotion,false);
   if (!SHARED || SHARED.pausedAtMs !== null) return;
   SHARED.pausedAtMs = performance.now();
   stopSharedLoop();
 }
 
-export function resumeShared(): void {
-  pauseRingPlayers(false);
+export function resumeShared(allowBake=true): void {
+  pauseRingPlayers(false,allowBake);
   if (!SHARED || SHARED.pausedAtMs === null) return;
   SHARED.pausedMs += performance.now() - SHARED.pausedAtMs;
   SHARED.pausedAtMs = null;
